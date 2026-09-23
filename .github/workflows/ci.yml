@@ -20,3 +20,19 @@ jobs:
         run: uv run ruff format --check .
       - name: Test
         run: uv run pytest
+
+  # The quantum extra is optional on purpose: the core benchmark has to stay
+  # installable on a machine with no qiskit, no ortools and no D-Wave Ocean.
+  # This job is what stops a module-scope backend import from sneaking in --
+  # the job above installs everything and would never notice.
+  core-only:
+    name: check (no optional extras)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync
+      - name: Test without optional backends
+        run: uv run pytest
