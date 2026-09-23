@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "setup": "uv sync --all-extras",
+    "run": "uv run pytest"
+  }
+}

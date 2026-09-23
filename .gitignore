@@ -1,7 +1,14 @@
-space_track_credentials.json
 .venv/
 venv/
 __pycache__/
 *.pyc
 *.pyo
-cost_matrix.npy
+.pytest_cache/
+.ruff_cache/
+
+# Built problem instances are derived artifacts; snapshots under
+# data/snapshots/ are the reproducible inputs and ARE committed.
+data/instances/*.npz
+
+# Space-Track credentials, if a future fetcher needs them.
+space_track_credentials.json
