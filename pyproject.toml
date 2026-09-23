@@ -15,7 +15,9 @@ dependencies = [
 # Reserved for later workspaces. Keep heavy/optional backends here, not in
 # [project.dependencies], so the core benchmark stays installable everywhere.
 quantum = []   # QUBO workspace: dimod, neal, dwave-*, qiskit, ...
-physics = []   # physics workspace: poliastro/astropy-style extras, if needed
+# physics workspace: the plane-aware cost models need nothing beyond numpy +
+# sgp4; matplotlib is here only for scripts/plot_cloud.py.
+physics = ["matplotlib>=3.8"]
 
 [project.scripts]
 dextrivia = "dextrivia.cli:main"
