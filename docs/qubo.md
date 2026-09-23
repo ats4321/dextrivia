@@ -65,14 +65,14 @@ path cost in km/s.** That is the property everything else is checked against
 $H_{\text{pen}}$ is a sum of squared integers, so it is $0$ on a permutation
 matrix and $\ge 1$ on anything else. Leg costs are non-negative, so
 $H_{\text{obj}} \ge 0$ everywhere. Therefore any infeasible assignment scores at
-least $A$, while the best feasible one scores exactly the optimum $L^\*$:
+least $A$, while the best feasible one scores exactly the optimum $L^*$:
 
-$$A > L^\* \;\;\Longrightarrow\;\; \text{every infeasible assignment is worse than the optimum.}$$
+$$A > L^* \;\;\Longrightarrow\;\; \text{every infeasible assignment is worse than the optimum.}$$
 
-$L^\*$ is unknown up front, but it is bounded above by any feasible path, so the
+$L^*$ is unknown up front, but it is bounded above by any feasible path, so the
 greedy solver supplies a computable bound in $O(N^3)$:
 
-$$A \;=\; \text{safety} \cdot \underbrace{L_{\text{greedy}}}_{\ge\, L^\*}, \qquad \text{safety} > 1.$$
+$$A \;=\; \text{safety} \cdot \underbrace{L_{\text{greedy}}}_{\ge\, L^*}, \qquad \text{safety} > 1.$$
 
 `default_penalty()` implements exactly this. The bound is verified by exhaustive
 enumeration of all $2^{N^2}$ assignments at $N=3$ and $N=4$
@@ -85,7 +85,7 @@ Lucas 2014, *Ising formulations of many NP problems*, §7.2, gives the TSP rule
 $A > B \cdot \max_{ij} W_{ij}$. That is a statement about the cost of a single
 variable flip. It does not by itself rule out an infeasible assignment that
 dodges several expensive legs at once — and on a real instance here
-$\max_{ij} C[i,j] \approx 0.05$ km/s while $L^\* \approx 0.126$ km/s, so the
+$\max_{ij} C[i,j] \approx 0.05$ km/s while $L^* \approx 0.126$ km/s, so the
 Lucas value is *below* the threshold that provably works. The global bound costs
 one greedy run and is sound.
 
