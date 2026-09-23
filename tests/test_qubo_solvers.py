@@ -199,6 +199,9 @@ def test_qaoa_records_shots_layers_and_versions():
     assert len(metadata["restart_expectations"]) == 1
     assert metadata["seed"] == 5
     assert metadata["versions"]["qiskit"] != "not installed"
+    # If Qiskit ever renames the cost-layer parameters, initialisation quietly
+    # degrades; this is the tripwire that says so.
+    assert metadata["gamma_parameters_detected"] is True
 
 
 @needs_qiskit

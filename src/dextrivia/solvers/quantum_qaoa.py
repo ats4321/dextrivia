@@ -142,7 +142,13 @@ class QAOASolver:
         # gamma multiplies the cost coefficients, so its useful range shrinks as
         # the Hamiltonian gets stiffer; beta multiplies the mixer and does not.
         scale = max(float(np.max(np.abs(hamiltonian.coeffs.real))), 1e-9)
+        # Qiskit names the cost-layer parameters "γ[k]" and the mixer ones
+        # "β[k]", and does not guarantee that order in ansatz.parameters. If a
+        # future release renames them this falls back to the mixer range for
+        # everything, which costs convergence rather than correctness -- so it
+        # is recorded rather than asserted, and shows up in the run record.
         is_gamma = [p.name.startswith("γ") for p in ansatz.parameters]
+        gamma_detected = sum(is_gamma) == self.reps
 
         rng = np.random.default_rng(seed)
         best: tuple[float, np.ndarray] | None = None
@@ -197,6 +203,7 @@ class QAOASolver:
                 "final_expectation": expectation,
                 "restart_expectations": restart_values,
                 "hamiltonian_terms": len(hamiltonian),
+                "gamma_parameters_detected": gamma_detected,
                 "statevector_bytes": statevector_bytes(instance.n),
                 "seed": seed,
                 "versions": library_versions(*_PACKAGES),
