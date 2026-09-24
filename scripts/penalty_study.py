@@ -36,6 +36,11 @@ from dextrivia.solvers.quantum_annealing import SimulatedAnnealingSolver
 FAMILY_SIZES = (4, 5, 8, 10, 15, 20)
 FACTORS = (0.5, 1.01, 1.05, 1.1, 1.25, 1.5, 2.0, 4.0)
 
+#: Two factors within this many percentage points of each other are a tie, not
+#: a ranking. Without it the easy instances (where everything scores +0.00%)
+#: vote for whichever factor sorts first.
+TIE_PCT = 0.5
+
 
 def instance_path(n: int) -> Path:
     return (
@@ -115,26 +120,45 @@ def main() -> int:
     # Does one factor win consistently? Count per-instance wins among the
     # provably sufficient factors only -- a default that voids the bound is not
     # a candidate no matter how well it scores.
+    #
+    # TIES COUNT FOR NOBODY. On the easy instances every factor scores +0.00%,
+    # and a plain argmin hands the win to whichever factor happens to sort
+    # first -- which manufactures a "consistent winner" out of instances that
+    # discriminate nothing. An instance only votes if some factor beats the
+    # rest by more than TIE_PCT.
     sufficient = [f for f in FACTORS if f > 1.0]
     wins: dict[float, int] = dict.fromkeys(sufficient, 0)
     instances = sorted({r["n"] for r in results})
+    discriminating = []
     for n in instances:
         rows = [r for r in results if r["n"] == n and r["provably_sufficient"]]
-        if rows:
-            wins[min(rows, key=lambda r: r["mean_gap_pct"])["factor"]] += 1
+        if not rows:
+            continue
+        ranked = sorted(rows, key=lambda r: r["mean_gap_pct"])
+        if len(ranked) > 1 and ranked[1]["mean_gap_pct"] - ranked[0]["mean_gap_pct"] <= TIE_PCT:
+            continue  # tied at the top: this instance does not discriminate
+        discriminating.append(n)
+        wins[ranked[0]["factor"]] += 1
 
-    print("\n=== per-instance wins among provably sufficient factors ===")
+    total = len(discriminating)
+    print(
+        f"\n=== wins among provably sufficient factors ===\n"
+        f"  {total}/{len(instances)} instances discriminate "
+        f"(N={discriminating}); the rest tie within {TIE_PCT}pp and vote for nobody"
+    )
     for factor, count in sorted(wins.items(), key=lambda kv: -kv[1]):
         means = by_factor[factor]
         overall = statistics.fmean(means) if means else float("nan")
-        print(f"  factor {factor:<5} wins {count}/{len(instances)}  mean-of-means {overall:+.2f}%")
+        print(f"  factor {factor:<5} wins {count}/{total}  mean-of-means {overall:+.2f}%")
 
     best_factor, best_wins = max(wins.items(), key=lambda kv: kv[1])
-    verdict = (
-        f"factor {best_factor} wins {best_wins}/{len(instances)} instances"
-        if best_wins > len(instances) / 2
-        else f"NO consistent winner (best is {best_factor} at {best_wins}/{len(instances)})"
-    )
+    if total and best_wins > total / 2:
+        verdict = f"factor {best_factor} wins {best_wins}/{total} discriminating instances"
+    else:
+        verdict = (
+            f"NO consistent winner: {total} discriminating instances, "
+            f"best factor {best_factor} takes only {best_wins}. Keep the current default."
+        )
     print(f"\nVERDICT: {verdict}")
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -146,6 +170,8 @@ def main() -> int:
                 "sweeps": args.sweeps,
                 "factors": list(FACTORS),
                 "wins": {str(k): v for k, v in wins.items()},
+                "discriminating_instances": discriminating,
+                "tie_pct": TIE_PCT,
                 "verdict": verdict,
                 "results": results,
             },

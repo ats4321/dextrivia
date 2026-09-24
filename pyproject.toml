@@ -18,6 +18,10 @@ dependencies = [
 # SimulatedAnnealingSampler that neal used to provide.
 # qiskit-optimization is deliberately absent: it is barely maintained and pulls
 # in qiskit-algorithms, and dextrivia builds its own Ising operator anyway.
+# The name "quantum" is historical. ortools is in here for three solvers, two of
+# which (cpsat, localsearch's oracle role) are purely classical baselines -- it
+# is the optional-solver-backends extra, not a quantum one. Splitting it would
+# cost every caller a second extra to remember for no benefit.
 quantum = [
     "dimod>=0.12.17",
     "dwave-samplers>=1.4",
