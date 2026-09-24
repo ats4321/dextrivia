@@ -132,6 +132,14 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
 * 2026-09-23 — `Snapshot.fetched_utc` is now `datetime | None` (additive to
   callers that only read it, breaking for callers that assumed non-null). The
   committed legacy snapshot has no recorded fetch time; see limitation 5.
+* 2026-09-23 — plane-aware cost models landed (physics workspace) with **no
+  change to `core.py`**. Recorded here because it is the interesting case: the
+  time-slotted `(N-1, N, N)` shape and the position-in-sequence slot index were
+  enough, and `dextrivia.costs.selection.build_cluster_instance` assembles
+  `ProblemInstance` directly rather than through `instances.build_instance`,
+  whose `rule` argument is `first`/`random` only. If a `plane-cluster` rule
+  should become a first-class `Snapshot.select` option, that is a foundation
+  change and needs its own entry.
 
 ## Build & test
 
@@ -143,3 +151,66 @@ uv run ruff check . && uv run ruff format --check .
 uv run dextrivia build --n 10
 uv run dextrivia solve --instance data/instances/iridium33_20260402_n10_first.npz --solver exact
 ```
+
+## Physics
+
+Owned by the physics workspace. Full write-up: **`docs/physics.md`**.
+
+### What exists
+
+| Module | What it is |
+|---|---|
+| `costs/hohmann.py` | altitude-only baseline. Unchanged, still the default for `dextrivia build`, still degenerate on purpose. |
+| `costs/realistic.py` | `ImpulsiveCostModel` (Hohmann + optimally split plane change) and `EdelbaumCostModel` (low-thrust), plus `plane_angle`, `nodal_precession_deg_per_day`, `mean_elements`. |
+| `costs/selection.py` | `plane-cluster` target selection + `build_cluster_instance`. |
+| `scripts/build_instance_family.py` | regenerates the committed instance family and prints the greedy/exact gap table. |
+| `scripts/plot_cloud.py` | `docs/figures/raan_altitude.png`. Needs the `physics` extra (matplotlib). |
+
+### Facts that drive every design choice here
+
+* Inclinations span 0.51°, RAANs span the full circle. The **median pairwise
+  plane angle is 45.5°**, costing **5.8 km/s** impulsively — against 0.126 km/s
+  for the entire 10-object mission under the coplanar model.
+* Exchange rate at 700 km: **1° of plane ≈ 0.131 km/s, 100 km of altitude ≈
+  0.053 km/s.** Both matter, which is what makes sequencing non-trivial.
+* J2 nodal drift is **common-mode**: −0.405 to −0.505 °/day, so it mostly
+  cancels in ΔΩ. The **differential** rate for a median pair is 0.016 °/day —
+  **612 days to change their separation by 10°**. Waiting buys very little.
+  Do not claim otherwise.
+
+### Conventions this workspace adds
+
+* **Wall-clock mapping: leg `k` departs at `epoch + k · Δ`**, `Δ =
+  delta_per_leg_days` (transfer + rendezvous + capture + release). Recorded in
+  metadata as `delta_per_leg_days` and `leg_departure_rule`. Slots stay
+  position-in-sequence; this is the only place wall clock enters.
+* `C[k,i,j]` is priced at the **nominal** departure time. A min-over-loiter-window
+  variant exists (`window_days`) and is **off by default** — it buys ~0 km/s at
+  86° and it grants the drift discount without the objective paying for the
+  wait. See `docs/physics.md` §5.
+* **`plane-cluster` selection is fixed before any solver runs.** Never pick
+  instances by which solver wins on them.
+* Edelbaum is only valid to θ ≈ 114.6°; above that the effective angle passes π
+  and the formula inverts. It is clamped, and clamped values are ceilings, not
+  quantities.
+* Costs that are upper bounds (two-burn above ~60° of plane, `separate_burn_dv`)
+  say so in their docstring.
+
+### The committed instance family
+
+`data/instances/iridium33_20260402_planecluster-v1_n{4,5,8,10,15,20}_{static,td30d}.npz`
+— 12 files, committed (a `!`-negation in `.gitignore`), cited by
+`tests/test_instance_family.py`. Δ = 30 days.
+
+Headline, from `scripts/build_instance_family.py`:
+
+* **Altitude order is no longer optimal anywhere** — 56–339% worse than the
+  Held-Karp optimum. The degeneracy in "Known limitations" item 1 is gone for
+  these instances (`tests/test_degeneracy.py` still passes because the default
+  cost model is untouched, and should be rewritten, not deleted, if the default
+  ever changes).
+* **Greedy still ties exact on all six static instances.** Say this plainly; a
+  plane-aware static matrix is still near-metric.
+* **Time dependence is what breaks greedy**: +5.37% at N=8, +5.18% at N=15.
+  That is the headroom available to a quantum / quantum-inspired solver.
+* N=20 is past the Held-Karp limit and records a miss, by design.
