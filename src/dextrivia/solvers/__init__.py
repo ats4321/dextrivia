@@ -11,9 +11,12 @@ usable -- on an install without the ``quantum`` extra. A solver whose backend
 is missing reports ``feasible=False`` at solve time like any other miss.
 """
 
+from dextrivia.solvers.cpsat import CPSATSolver
 from dextrivia.solvers.exact import BruteForceSolver, ExactSolver
 from dextrivia.solvers.greedy import GreedySolver
+from dextrivia.solvers.local_search import LocalSearchSolver
 from dextrivia.solvers.ortools_routing import ORToolsRoutingSolver
+from dextrivia.solvers.perm_annealing import PermutationAnnealingSolver
 from dextrivia.solvers.quantum_annealing import SimulatedAnnealingSolver
 from dextrivia.solvers.quantum_qaoa import QAOASolver
 
@@ -25,10 +28,23 @@ SOLVERS = {
     SimulatedAnnealingSolver.name: SimulatedAnnealingSolver,
     QAOASolver.name: QAOASolver,
     ORToolsRoutingSolver.name: ORToolsRoutingSolver,
+    LocalSearchSolver.name: LocalSearchSolver,
+    PermutationAnnealingSolver.name: PermutationAnnealingSolver,
+    CPSATSolver.name: CPSATSolver,
 }
+
+#: Solvers whose result does not depend on ``seed``. The benchmark runs these
+#: once instead of once per seed -- three identical Held-Karp runs measure
+#: nothing and cost oracle time. Everything else is run per seed and reported
+#: with a mean and a spread.
+DETERMINISTIC = frozenset({GreedySolver.name, ExactSolver.name, BruteForceSolver.name})
 
 __all__ = [
     "GreedySolver",
+    "LocalSearchSolver",
+    "PermutationAnnealingSolver",
+    "CPSATSolver",
+    "DETERMINISTIC",
     "ExactSolver",
     "BruteForceSolver",
     "SimulatedAnnealingSolver",
