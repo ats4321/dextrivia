@@ -110,6 +110,7 @@ needs to record misses.
 | `src/dextrivia/core.py`, `instances.py`, `snapshots.py`, `propagation.py`, `cli.py`, `solvers/greedy.py`, `solvers/exact.py` | foundation (this workspace) |
 | `src/dextrivia/costs/`, `data/instances/` | **physics workspace** |
 | `src/dextrivia/qubo/`, `src/dextrivia/solvers/quantum*` | **QUBO workspace** |
+| `src/dextrivia/bench.py`, `scripts/plot_benchmark.py`, `results/`, `solvers/{cpsat,local_search,perm_annealing}.py` | **benchmark workspace** |
 | `tests/` | shared — add files, don't rewrite others' |
 
 **Rule: nobody changes an interface in `core.py` without recording why in this
@@ -140,6 +141,68 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
   whose `rule` argument is `first`/`random` only. If a `plane-cluster` rule
   should become a first-class `Snapshot.select` option, that is a foundation
   change and needs its own entry.
+
+## Benchmark
+
+Owned by the **benchmark workspace**. Full write-up: **`README.md`** (the
+public-facing one) — this section is the ownership and interface record.
+
+```bash
+dextrivia bench                                    # everything, ~30 min
+dextrivia bench --solvers greedy,exact --seeds 1   # a quick one
+uv run python scripts/plot_benchmark.py results/<run>
+```
+
+### Files claimed
+
+| Path | Note |
+|---|---|
+| `src/dextrivia/bench.py` | the harness: discovery, runs, references, summaries, manifest |
+| `src/dextrivia/solvers/cpsat.py` | `cpsat` — CP-SAT reference, handles `C[t,i,j]` |
+| `src/dextrivia/solvers/local_search.py` | `local-search` — 2-opt + or-opt, handles `C[t,i,j]` |
+| `src/dextrivia/solvers/perm_annealing.py` | `sa-perm` — the budget-matched control for `sa-qubo` |
+| `scripts/plot_benchmark.py` | every figure, from a results directory |
+| `results/` | committed canonical run, cited by the README |
+| `tests/test_bench.py`, `tests/test_bench_solvers.py` | added, nothing else in `tests/` touched |
+
+### Changes to files this workspace does not own
+
+* **`core.py`: none.** The harness reads costs only through
+  `instance.leg_costs(step)` and records misses through the existing
+  `feasible=False` contract. No interface change was needed, so there is no
+  entry in the interface change log.
+* **`cli.py` (foundation)** gained a fourth verb, `bench`, delegating to
+  `dextrivia.bench.add_arguments` / `.main`. Additive; `fetch|build|solve` are
+  untouched.
+* **`solvers/__init__.py`** (unowned, same as the QUBO workspace's note) gained
+  three `SOLVERS` entries and a new `DETERMINISTIC` frozenset. The benchmark
+  runs deterministic solvers once rather than once per seed — three identical
+  Held-Karp runs measure nothing and cost oracle time.
+* **`qubo/formulation.py` (QUBO workspace)** — `summarize_samples` returns two
+  additional keys, `mean_feasible_dv_kms` and `best_raw_sample_count`. Purely
+  additive; every existing key and value is unchanged. They exist so the
+  harness can ask whether a sampler beat chance (mean of the *distribution*,
+  not of the luckiest shot) and how often it landed on its own best answer —
+  without the oracle ever being imported into a solver. The harness combines
+  them with the optimum it already knows.
+
+### Rules this workspace adds
+
+* **Every number in `README.md` comes from the committed run** under
+  `results/`, cited by path. If a number cannot be traced to a CSV cell it does
+  not go in.
+* **`reference_kind` is always printed.** `exact` means Held-Karp ran;
+  `best-known` means it could not and the gap is measured against the best
+  result anything achieved. A best-known gap is not an optimality gap.
+* **A configured time limit is not a runtime measurement.** `ortools` and
+  `cpsat` burn their limits; `qaoa`'s wall clock is **classical statevector
+  simulation time** and is labelled that way everywhere it appears.
+* **`sa-perm` must stay budget-matched to `sa-qubo`.** Same `num_reads` and
+  `num_sweeps`, and a sweep is `N**2` proposed moves on both sides. Both
+  proposal counts are in the metadata; `tests/test_bench_solvers.py` asserts
+  the formula. Change one solver's default and you have to change the other's.
+* **`cpsat` is warm-started from greedy** and says so in its metadata. A
+  warm-started result is a statement about CP-SAT *plus* greedy.
 
 ## Build & test
 

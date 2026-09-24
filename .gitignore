@@ -14,5 +14,12 @@ data/instances/*.npz
 # asserts against them. Regenerate with scripts/build_instance_family.py.
 !data/instances/*_planecluster-v*.npz
 
+# Benchmark runs are derived artifacts and there will be many of them. The ONE
+# canonical run the README cites is committed, same pattern as the instance
+# family above: published numbers have to be traceable to the CSV that made
+# them. Regenerate any other with `dextrivia bench`.
+results/*/
+!results/canonical/
+
 # Space-Track credentials, if a future fetcher needs them.
 space_track_credentials.json
