@@ -83,7 +83,10 @@ def test_manifest_records_what_would_change_the_numbers(instance_dir, tmp_path):
     manifest = json.loads((out / "manifest.json").read_text())
 
     assert manifest["git"]["sha"]
-    assert "dirty" in manifest["git"]
+    # Listed, not summarised to a boolean: uncommitted solver code voids a run,
+    # an uncommitted README does not, and only the paths distinguish them.
+    assert isinstance(manifest["git"]["dirty_paths"], list)
+    assert manifest["git"]["dirty"] == bool(manifest["git"]["dirty_paths"])
     assert manifest["seeds"] == [1, 2]
     assert manifest["versions"]["numpy"]
     assert manifest["platform"]["python"]

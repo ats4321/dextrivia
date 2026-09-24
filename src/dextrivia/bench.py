@@ -210,6 +210,26 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
+def git_state() -> dict[str, Any]:
+    """Repository state, captured at the START of a run.
+
+    Captured at the start rather than the end because that is the state that
+    actually produced the numbers -- a file edited while a 60-minute benchmark
+    runs did not influence it. ``dirty_paths`` is listed rather than summarised
+    to a boolean so a reader can see whether the uncommitted work was solver
+    code or a README, which is the difference between a void result and a
+    cosmetic one.
+    """
+    porcelain = _git("status", "--porcelain") or ""
+    dirty = sorted(line[3:] for line in porcelain.splitlines() if line.strip())
+    return {
+        "sha": _git("rev-parse", "HEAD"),
+        "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
+        "dirty": bool(dirty),
+        "dirty_paths": dirty,
+    }
+
+
 def warm_backends() -> dict[str, str]:
     """Import optional backends before anything is timed.
 
@@ -493,6 +513,7 @@ def build_manifest(
     backends: dict[str, str],
     started: datetime,
     elapsed_s: float,
+    git: dict[str, Any],
 ) -> dict[str, Any]:
     """Everything needed to say what produced these numbers, and on what."""
     versions = {}
@@ -509,13 +530,9 @@ def build_manifest(
         "timestamp_utc": started.isoformat(),
         "elapsed_s": elapsed_s,
         "command": " ".join(argv),
-        "git": {
-            "sha": _git("rev-parse", "HEAD"),
-            "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
-            # A benchmark run from a dirty tree is not reproducible from the SHA
-            # alone, and the manifest is the only place that can admit it.
-            "dirty": bool(_git("status", "--porcelain")),
-        },
+        # A benchmark run from a dirty tree is not reproducible from the SHA
+        # alone, and the manifest is the only place that can admit it.
+        "git": git,
         "snapshots": snapshots,
         "instances": [
             {
@@ -563,6 +580,7 @@ def run_bench(
     """Run the benchmark and write a results directory. Returns its path."""
     started = datetime.now(UTC)
     clock = started.timestamp()
+    git = git_state()
     instance_dir = Path(instance_dir) if instance_dir else default_instance_dir()
     paths = discover_instances(instance_dir, patterns)
     if not paths:
@@ -618,7 +636,7 @@ def run_bench(
 
     elapsed = datetime.now(UTC).timestamp() - clock
     manifest = build_manifest(
-        paths, instances, names, seeds, factors, argv or sys.argv, backends, started, elapsed
+        paths, instances, names, seeds, factors, argv or sys.argv, backends, started, elapsed, git
     )
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
 

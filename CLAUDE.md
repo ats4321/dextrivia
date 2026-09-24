@@ -340,11 +340,14 @@ record.
 7. **No result at N<=4 distinguishes a solver from noise.** With 6 or 24
    possible sequences, best-of-shots plus repair finds the optimum from uniform
    random bits. Only the raw feasibility rate carries any signal at those sizes.
-8. **OR-Tools cannot take time-slotted costs.** A routing arc-cost callback sees
-   `(from, to)` only and has no idea how many legs have been flown. Such
-   instances get `feasible=False` rather than a quietly wrong answer. When the
-   physics workspace lands `C[t,i,j]`, the strong classical baseline above
-   Held-Karp range disappears and something else will have to fill that role.
+8. **OR-Tools *routing* cannot take time-slotted costs.** A routing arc-cost
+   callback sees `(from, to)` only and has no idea how many legs have been
+   flown. Such instances get `feasible=False` rather than a quietly wrong
+   answer. **Superseded as a benchmark hole by `cpsat`** (benchmark workspace):
+   a position-indexed CP-SAT model indexes its leg variables by position, which
+   is what a time slot is, so it takes `C[t,i,j]` natively. `ortools` still
+   refuses them and the refusal is still recorded — the two solvers are
+   different models, not a fixed and a broken one.
 9. **Only the time-dependent instances rank anything.** Superseded the original
    "benchmark is degenerate" note when the physics workspace landed: on the
    plane-cluster family, greedy still ties exact on *every* static instance
@@ -357,7 +360,16 @@ record.
    non-degenerate instance. On `n15_td30d` (225 variables) it lands +41.6%,
    far worse than greedy. Two data points are not a scaling law; do not report
    the first without the second.
-11. **The strong classical baseline is missing exactly where it is needed.**
-   `ortools` refuses both `td30d` instances (limitation 8), which are the only
-   ones with headroom. So the N=15 comparison currently has no good classical
-   bar above Held-Karp range at all.
+11. ~~**The strong classical baseline is missing exactly where it is needed.**~~
+   **Fixed** by the benchmark workspace: `cpsat` and `local-search` both handle
+   time-slotted costs, so the `td30d` instances now have strong classical bars,
+   and `cpsat` additionally reports a lower bound — which is what lets a
+   best-known gap above Held-Karp range be bounded rather than guessed. The
+   bound is only useful where CP-SAT gets far enough to tighten it; at N=20 it
+   is still 0.0, so the best-known gap there remains uncertified.
+
+12. **`sa-qubo` has a control now, and the control changes the reading.**
+   `sa-perm` anneals the permutation directly at a matched proposal budget. Any
+   statement about what annealing achieves on this problem has to quote both,
+   because they differ by far more than either differs from greedy. See the
+   README's conclusions for the measured numbers.
