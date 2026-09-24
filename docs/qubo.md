@@ -6,8 +6,14 @@ Owned by the QUBO workspace. Code: `src/dextrivia/qubo/formulation.py`,
 `src/dextrivia/solvers/ortools_routing.py`.
 
 This document records a formulation and a characterization. It is **not** a
-quantum-advantage claim, and the numbers below say plainly that no such claim is
-available at these sizes.
+quantum-advantage claim.
+
+The short version, measured against the plane-aware `planecluster-v1` instance
+family (§7): on time-dependent costs at N=8, `sa-qubo` reaches the exact optimum
+where greedy loses 5.37% — the first result in this project where the QUBO route
+beats the classical heuristic on an instance with any headroom. At N=15 the same
+solver lands +41.6%, eight times worse than greedy. One win and one collapse;
+neither should be quoted without the other. `qaoa` cannot reach either size.
 
 ## 1. The problem, restated for a binary encoder
 
@@ -95,7 +101,8 @@ A bigger penalty is not a free safety margin. Leg costs on the committed
 10-object instance span roughly 0.005–0.05 km/s while $A \approx 0.14$; raising
 $A$ further compresses the entire objective into the numerical shadow of the
 penalty terms, and the sampler loses the ability to tell a good path from a
-mediocre one. Measured with `sweep_penalty`, 500 reads × 1000 sweeps, seed 11:
+mediocre one. Measured with `sweep_penalty` on the degenerate Hohmann N=10
+instance, 500 reads × 1000 sweeps, seed 11:
 
 | factor | $A$ | provably sufficient | raw feasibility | best delta-v | gap to optimum |
 |---|---|---|---|---|---|
@@ -119,6 +126,27 @@ Two things worth reading off this table:
    instance is degenerate (see §7). It is a reminder that "provably sufficient"
    and "works well" are different properties, which is why `sweep_penalty`
    reports `provably_sufficient` as a separate column rather than filtering.
+
+### The default is not confirmed on harder instances
+
+The same sweep on `planecluster-v1_n15_td30d` (225 variables, 1000 reads × 2000
+sweeps) is **not monotone and is bad everywhere**:
+
+| factor | 1.01 | 1.05 | 1.1 | 1.5 |
+|---|---|---|---|---|
+| gap to optimum | +34.7% | +14.9% | **+41.6%** | +41.8% |
+| raw feasibility | 1.00 | 1.00 | 1.00 | 1.00 |
+
+The shipped default of 1.1 is the *worst* of the four on that instance, and 1.05
+is nearly three times better. One instance is not enough to re-tune on — the
+ordering is not monotone, so this may be sampler noise rather than signal — but
+it is enough to say plainly that **`DEFAULT_PENALTY_SAFETY = 1.1` is calibrated
+on one easy instance and should not be trusted at N=15 and above.** Sweep it per
+instance rather than accepting the default, which is what `sweep_penalty` is for.
+
+Note also what the table rules *out*: feasibility is 1.00 at every factor, so
+the penalty is not the reason `sa-qubo` performs badly at N=15 (§7). The
+constraint terms are working; the objective is simply not being optimised.
 
 ## 4. Time-slotted costs
 
@@ -259,29 +287,59 @@ full time limit every run. **Its runtime is a configured knob, not a
 measurement**, and comparing it to another solver's wall-clock is meaningless
 unless the limit is quoted alongside.
 
-## 7. What these numbers are worth on the committed instance
+## 7. What these numbers are worth
 
-10 objects, `iridium33_20260402`, Hohmann cost model, seed 11:
+The physics workspace has since landed plane-aware cost models and a committed
+`planecluster-v1` instance family, so this section no longer rests on the
+degenerate Hohmann instance. Held-Karp is the oracle throughout; `sa-qubo` at
+1000 reads x 2000 sweeps, seed 11; `ortools` at a 2 s limit.
 
-| solver | delta-v (km/s) | gap | runtime | raw feasibility |
-|---|---|---|---|---|
-| `greedy` | 0.126246 | +0.0% | 0 ms | — |
-| `exact` (oracle) | 0.126246 | +0.0% | 6 ms | — |
-| `ortools` | 0.126246 | +0.0% | 2194 ms (2 s limit) | 1.00 |
-| `sa-qubo` | 0.133822 | +6.0% | 672 ms | 1.00 |
-| `qaoa` | — | — | — | infeasible: needs 100 qubits |
+| instance | N | vars | optimum (km/s) | `greedy` | `sa-qubo` | `ortools` |
+|---|---|---|---|---|---|---|
+| `n8_static` | 8 | 64 | 1.0824 | +0.00% | +0.00% | +0.00% |
+| `n10_static` | 10 | 100 | 1.3268 | +0.00% | +12.57% | +0.00% |
+| `n8_td30d` | 8 | 64 | 1.1124 | +5.37% | **+0.00%** | **refused** |
+| `n15_td30d` | 15 | 225 | 2.1855 | +5.18% | +41.56% | **refused** |
 
-**Do not read a ranking into this table.** As `CLAUDE.md` limitation 1 and
-`tests/test_degeneracy.py` record, the Hohmann model derives every cost from one
-scalar per object, so the objects lie on a line, the optimum is just "visit in
-altitude order", and *greedy already ties the exact optimum*. There is no
-headroom for any solver to demonstrate anything. The only informative entry is
-the one that is worse than free: the QUBO route loses 6% to a problem that a
-nearest-neighbour heuristic solves exactly, which is a fair statement of what the
-penalty-encoded formulation costs you on an easy instance.
+Raw feasibility was 1.00 on every row — the one-hot constraints are not the
+difficulty here, the objective is.
 
-The table becomes interesting when a real cost model lands and greedy stops
-tying the optimum.
+Three things this table actually says:
+
+1. **Static instances still rank nothing.** Greedy ties the exact optimum on
+   *every* static instance in the family, N=4 through N=15. A plane-aware static
+   cost matrix is still near-metric, so nearest-neighbour is already optimal and
+   there is nothing for any solver to demonstrate. `sa-qubo` losing 12.6% at
+   `n10_static` is a statement about the penalty encoding's overhead on an easy
+   problem, not about annealing.
+
+2. **`n8_td30d` is the first genuine win in this project.** Greedy loses 5.37%;
+   `sa-qubo` reaches the exact optimum. Time dependence is what breaks
+   nearest-neighbour — a cheap next leg now can strand the servicer in a plane
+   that is expensive to leave three legs later — and that is exactly the
+   structure a QUBO carries natively, because the cost of leg *p* is baked into
+   the coupling between positions *p* and *p+1* rather than discovered greedily.
+
+3. **It does not survive to N=15.** At 225 variables `sa-qubo` lands +41.56%,
+   eight times worse than greedy. This is not a penalty-tuning artefact: the
+   sweep at that instance gives +34.7%, +14.9%, +41.6%, +41.8% at factors 1.01,
+   1.05, 1.1, 1.5 — non-monotonic, all bad, feasibility 1.00 throughout. The
+   constraint terms are doing their job and the objective is simply not being
+   optimised.
+
+**Two data points are not a scaling law.** One win at N=8 and one collapse at
+N=15 is the honest summary, and the win must not be quoted without the collapse.
+
+### The baseline is missing where it matters
+
+`ortools` refuses both `td30d` rows, because a routing arc-cost callback cannot
+express `C[t,i,j]` (§6). Those are precisely the two instances with any headroom.
+So the N=15 comparison currently has **no strong classical bar above Held-Karp
+range at all** — `sa-qubo`'s +41.56% is measured against an exact oracle that
+will itself run out at N=18, and against greedy. Filling that gap is the most
+valuable next piece of work in this workspace: without it, the first instance
+size where the quantum-inspired route might matter is also the first size where
+there is nothing credible to compare it to.
 
 ## 8. Run records
 

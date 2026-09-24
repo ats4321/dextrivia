@@ -282,6 +282,19 @@ record.
    instances get `feasible=False` rather than a quietly wrong answer. When the
    physics workspace lands `C[t,i,j]`, the strong classical baseline above
    Held-Karp range disappears and something else will have to fill that role.
-9. **The benchmark is still degenerate** (limitation 1 above), so the comparison
-   table in `docs/qubo.md` §7 ranks nothing. `sa-qubo` losing 6% to a problem
-   greedy solves exactly is the only informative entry in it.
+9. **Only the time-dependent instances rank anything.** Superseded the original
+   "benchmark is degenerate" note when the physics workspace landed: on the
+   plane-cluster family, greedy still ties exact on *every* static instance
+   (N=4..15), so those tables still rank nothing. The `td30d` instances at N=8
+   and N=15 are the first with real headroom (greedy +5.37% and +5.18%). Quote
+   a static-instance result only as a sanity check, never as a comparison.
+10. **The one win and the one collapse are both at `sa-qubo`.** On `n8_td30d`
+   it reaches the exact optimum where greedy loses 5.37% -- the first result in
+   this project where the QUBO route beats the classical heuristic on a
+   non-degenerate instance. On `n15_td30d` (225 variables) it lands +41.6%,
+   far worse than greedy. Two data points are not a scaling law; do not report
+   the first without the second.
+11. **The strong classical baseline is missing exactly where it is needed.**
+   `ortools` refuses both `td30d` instances (limitation 8), which are the only
+   ones with headroom. So the N=15 comparison currently has no good classical
+   bar above Held-Karp range at all.
