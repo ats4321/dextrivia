@@ -11,9 +11,11 @@ usable -- on an install without the ``quantum`` extra. A solver whose backend
 is missing reports ``feasible=False`` at solve time like any other miss.
 """
 
+from dextrivia.solvers.cpsat import CPSATSolver
 from dextrivia.solvers.exact import BruteForceSolver, ExactSolver
 from dextrivia.solvers.greedy import GreedySolver
 from dextrivia.solvers.ortools_routing import ORToolsRoutingSolver
+from dextrivia.solvers.permutation import LocalSearchSolver, PermutationAnnealingSolver
 from dextrivia.solvers.quantum_annealing import SimulatedAnnealingSolver
 from dextrivia.solvers.quantum_qaoa import QAOASolver
 
@@ -25,6 +27,9 @@ SOLVERS = {
     SimulatedAnnealingSolver.name: SimulatedAnnealingSolver,
     QAOASolver.name: QAOASolver,
     ORToolsRoutingSolver.name: ORToolsRoutingSolver,
+    LocalSearchSolver.name: LocalSearchSolver,
+    PermutationAnnealingSolver.name: PermutationAnnealingSolver,
+    CPSATSolver.name: CPSATSolver,
 }
 
 __all__ = [
@@ -34,5 +39,8 @@ __all__ = [
     "SimulatedAnnealingSolver",
     "QAOASolver",
     "ORToolsRoutingSolver",
+    "LocalSearchSolver",
+    "PermutationAnnealingSolver",
+    "CPSATSolver",
     "SOLVERS",
 ]
