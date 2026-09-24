@@ -293,7 +293,10 @@ record.
    this project where the QUBO route beats the classical heuristic on a
    non-degenerate instance. On `n15_td30d` (225 variables) it lands +41.6%,
    far worse than greedy. Two data points are not a scaling law; do not report
-   the first without the second.
+   the first without the second. The N=15 gap is a ceiling, not a budget
+   problem: 20x the sampling effort takes it to +17.1%, a further 5x (458 s,
+   against greedy's sub-millisecond) lands +19.6%. It plateaus at 17-20%,
+   three to four times worse than greedy. More compute does not lift it.
 11. **The strong classical baseline is missing exactly where it is needed.**
    `ortools` refuses both `td30d` instances (limitation 8), which are the only
    ones with headroom. So the N=15 comparison currently has no good classical

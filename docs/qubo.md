@@ -327,8 +327,27 @@ Three things this table actually says:
    constraint terms are doing their job and the objective is simply not being
    optimised.
 
+   Nor is it a budget artefact. Throwing effort at it helps once and then
+   stops:
+
+   | reads × sweeps | runtime | gap to optimum |
+   |---|---|---|
+   | 1000 × 2000 | 4 s | +41.56% |
+   | 2000 × 20000 | 86 s | +17.12% |
+   | 2000 × 100000 | 458 s | +19.55% |
+
+   A 20x increase in sampling effort buys 41.6% → 17.1%. A further 5x — 115x
+   the original budget, 458 seconds against greedy's sub-millisecond — buys
+   nothing, and lands marginally worse, which is within sampler noise. **The
+   gap plateaus around 17-20%, still three to four times worse than greedy at
+   +5.18%.** This is a ceiling, not a budget problem, and it is the single most
+   important number in this document: the penalty-encoded QUBO route has a
+   quality floor at N=15 that more compute does not lift.
+
 **Two data points are not a scaling law.** One win at N=8 and one collapse at
 N=15 is the honest summary, and the win must not be quoted without the collapse.
+What the effort sweep does establish is that the N=15 result is a property of
+the formulation-plus-sampler, not of how long it was left to run.
 
 ### The baseline is missing where it matters
 
