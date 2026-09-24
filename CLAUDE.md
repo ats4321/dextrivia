@@ -214,3 +214,87 @@ Headline, from `scripts/build_instance_family.py`:
 * **Time dependence is what breaks greedy**: +5.37% at N=8, +5.18% at N=15.
   That is the headroom available to a quantum / quantum-inspired solver.
 * N=20 is past the Held-Karp limit and records a miss, by design.
+
+## QUBO
+
+Owned by the **QUBO workspace**. Full write-up in `docs/qubo.md`.
+
+**No `core.py` change was needed.** The interfaces as merged carry this work
+unaltered, so there is no entry in the interface change log above — costs
+accepting `(N,N)` or `(N-1,N,N)` from day one is exactly what let the QUBO be
+written once for both shapes.
+
+### Files claimed
+
+| Path | Note |
+|---|---|
+| `src/dextrivia/qubo/` | formulation, decoding, repair, penalty sweep, run bookkeeping |
+| `src/dextrivia/solvers/quantum_annealing.py` | `sa-qubo`, dwave-samplers |
+| `src/dextrivia/solvers/quantum_qaoa.py` | `qaoa`, Qiskit statevector |
+| `src/dextrivia/solvers/ortools_routing.py` | `ortools` — **not a quantum file**, see below |
+| `tests/test_qubo_formulation.py`, `tests/test_qubo_solvers.py` | added, nothing else in `tests/` touched |
+| `docs/qubo.md` | new |
+
+`ortools_routing.py` is the one name that does not match the
+`solvers/quantum*` pattern this workspace was assigned. Calling a Google
+constraint-programming solver `quantum_ortools.py` to satisfy a glob would put a
+lie in the filename, and the benchmark's whole point is that the labels are
+honest. It is a new file, so it collides with nobody — the ownership table above
+names `greedy.py` and `exact.py` individually, not the directory. Claimed here
+instead.
+
+`src/dextrivia/solvers/__init__.py` gained three entries in `SOLVERS` plus their
+imports, so the CLI can reach them. That file was unowned; this line is the
+record.
+
+### Rules for anyone touching this code
+
+* **Never index `instance.costs`.** Use `instance.leg_costs(p)`. The QUBO's
+  position index `p` and the instance's slot index `t` are the same integer, so
+  time-slotted costs need no extra machinery — but only if everything goes
+  through the accessor.
+* **Optional backends are imported inside `solve()`, never at module scope.**
+  `dextrivia.solvers` must stay importable without the `quantum` extra, or the
+  CLI breaks on a core install. Enforced by `test_no_backend_is_imported_at_module_scope`,
+  which reads the source with `ast` rather than importing (an import-based check
+  would pass on CI, where every extra is installed) and by the `core-only` CI job.
+* **Raw and repaired results stay separate.** `repair()` cannot fail, so a
+  repaired delta-v always exists; quoting it as a sampler result would make a
+  sampler that never satisfied a single constraint look successful. See the
+  `N=4` random-noise control in `docs/qubo.md` §6 for how badly this misleads at
+  small `N`.
+* **The penalty default is a measurement, not a preference.**
+  `DEFAULT_PENALTY_SAFETY = 1.1` comes from the sweep table in `docs/qubo.md` §3.
+  Raising it does not buy feasibility and does cost solution quality.
+
+### Known limitations added by this workspace
+
+6. **QAOA tops out at N=4.** The position encoding needs `N**2` qubits and a
+   statevector is `2**(N**2)` amplitudes: N=5 is 512 MB, N=6 is 1 TB. The exact
+   Held-Karp oracle reaches N=18. The quantum solver's ceiling is an order of
+   magnitude below the classical oracle's on the same problem — that gap is a
+   finding, not a footnote.
+7. **No result at N<=4 distinguishes a solver from noise.** With 6 or 24
+   possible sequences, best-of-shots plus repair finds the optimum from uniform
+   random bits. Only the raw feasibility rate carries any signal at those sizes.
+8. **OR-Tools cannot take time-slotted costs.** A routing arc-cost callback sees
+   `(from, to)` only and has no idea how many legs have been flown. Such
+   instances get `feasible=False` rather than a quietly wrong answer. When the
+   physics workspace lands `C[t,i,j]`, the strong classical baseline above
+   Held-Karp range disappears and something else will have to fill that role.
+9. **Only the time-dependent instances rank anything.** Superseded the original
+   "benchmark is degenerate" note when the physics workspace landed: on the
+   plane-cluster family, greedy still ties exact on *every* static instance
+   (N=4..15), so those tables still rank nothing. The `td30d` instances at N=8
+   and N=15 are the first with real headroom (greedy +5.37% and +5.18%). Quote
+   a static-instance result only as a sanity check, never as a comparison.
+10. **The one win and the one collapse are both at `sa-qubo`.** On `n8_td30d`
+   it reaches the exact optimum where greedy loses 5.37% -- the first result in
+   this project where the QUBO route beats the classical heuristic on a
+   non-degenerate instance. On `n15_td30d` (225 variables) it lands +41.6%,
+   far worse than greedy. Two data points are not a scaling law; do not report
+   the first without the second.
+11. **The strong classical baseline is missing exactly where it is needed.**
+   `ortools` refuses both `td30d` instances (limitation 8), which are the only
+   ones with headroom. So the N=15 comparison currently has no good classical
+   bar above Held-Karp range at all.

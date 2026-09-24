@@ -14,7 +14,17 @@ dependencies = [
 [project.optional-dependencies]
 # Reserved for later workspaces. Keep heavy/optional backends here, not in
 # [project.dependencies], so the core benchmark stays installable everywhere.
-quantum = []   # QUBO workspace: dimod, neal, dwave-*, qiskit, ...
+# dwave-samplers supersedes dwave-neal (last released 2022); it ships the
+# SimulatedAnnealingSampler that neal used to provide.
+# qiskit-optimization is deliberately absent: it is barely maintained and pulls
+# in qiskit-algorithms, and dextrivia builds its own Ising operator anyway.
+quantum = [
+    "dimod>=0.12.17",
+    "dwave-samplers>=1.4",
+    "qiskit>=2.0",
+    "scipy>=1.11",
+    "ortools>=9.10",
+]
 # physics workspace: the plane-aware cost models need nothing beyond numpy +
 # sgp4; matplotlib is here only for scripts/plot_cloud.py.
 physics = ["matplotlib>=3.8"]
