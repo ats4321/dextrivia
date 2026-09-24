@@ -9,6 +9,10 @@ __pycache__/
 # Built problem instances are derived artifacts; snapshots under
 # data/snapshots/ are the reproducible inputs and ARE committed.
 data/instances/*.npz
+# ...except the versioned plane-cluster benchmark family, which IS committed:
+# published gap numbers cite these exact arrays, and tests/test_instance_family.py
+# asserts against them. Regenerate with scripts/build_instance_family.py.
+!data/instances/*_planecluster-v*.npz
 
 # Space-Track credentials, if a future fetcher needs them.
 space_track_credentials.json
