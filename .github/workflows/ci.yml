@@ -31,7 +31,7 @@ jobs:
         run: |
           uv run dextrivia bench \
             --instances n4_static \
-            --solvers greedy,exact,brute,sa-qubo,sa-perm,local-search,cpsat \
+            --solvers greedy,exact,brute,sa-qubo,sa-perm,localsearch,cpsat \
             --seeds 1 \
             --no-penalty-study \
             --out "${RUNNER_TEMP}/bench-smoke"

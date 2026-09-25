@@ -122,14 +122,14 @@ def test_deterministic_solvers_run_once_whatever_the_seed_list(instance_dir, tmp
     out = run_bench(
         instance_dir=instance_dir,
         out_dir=tmp_path / "run",
-        solvers=["exact", "local-search"],
+        solvers=["exact", "localsearch"],
         seeds=(1, 2, 3),
         run_penalty_study=False,
         verbose=False,
     )
     rows = read_csv(out / "results.csv")
     exact = [r for r in rows if r["solver"] == "exact" and r["instance"] == "n4_static"]
-    search = [r for r in rows if r["solver"] == "local-search" and r["instance"] == "n4_static"]
+    search = [r for r in rows if r["solver"] == "localsearch" and r["instance"] == "n4_static"]
 
     assert len(exact) == 1
     assert exact[0]["seed"] == ""

@@ -14,9 +14,8 @@ is missing reports ``feasible=False`` at solve time like any other miss.
 from dextrivia.solvers.cpsat import CPSATSolver
 from dextrivia.solvers.exact import BruteForceSolver, ExactSolver
 from dextrivia.solvers.greedy import GreedySolver
-from dextrivia.solvers.local_search import LocalSearchSolver
 from dextrivia.solvers.ortools_routing import ORToolsRoutingSolver
-from dextrivia.solvers.perm_annealing import PermutationAnnealingSolver
+from dextrivia.solvers.permutation import LocalSearchSolver, PermutationAnnealingSolver
 from dextrivia.solvers.quantum_annealing import SimulatedAnnealingSolver
 from dextrivia.solvers.quantum_qaoa import QAOASolver
 
@@ -33,22 +32,21 @@ SOLVERS = {
     CPSATSolver.name: CPSATSolver,
 }
 
-#: Solvers whose result does not depend on ``seed``. The benchmark runs these
-#: once instead of once per seed -- three identical Held-Karp runs measure
-#: nothing and cost oracle time. Everything else is run per seed and reported
-#: with a mean and a spread.
+#: Solvers whose result does not depend on ``seed``. ``dextrivia bench`` runs
+#: these once instead of once per seed -- three identical Held-Karp runs
+#: measure nothing and cost oracle time.
 DETERMINISTIC = frozenset({GreedySolver.name, ExactSolver.name, BruteForceSolver.name})
 
 __all__ = [
     "GreedySolver",
-    "LocalSearchSolver",
-    "PermutationAnnealingSolver",
-    "CPSATSolver",
     "DETERMINISTIC",
     "ExactSolver",
     "BruteForceSolver",
     "SimulatedAnnealingSolver",
     "QAOASolver",
     "ORToolsRoutingSolver",
+    "LocalSearchSolver",
+    "PermutationAnnealingSolver",
+    "CPSATSolver",
     "SOLVERS",
 ]

@@ -8,12 +8,14 @@ Owned by the QUBO workspace. Code: `src/dextrivia/qubo/formulation.py`,
 This document records a formulation and a characterization. It is **not** a
 quantum-advantage claim.
 
-The short version, measured against the plane-aware `planecluster-v1` instance
-family (§7): on time-dependent costs at N=8, `sa-qubo` reaches the exact optimum
-where greedy loses 5.37% — the first result in this project where the QUBO route
-beats the classical heuristic on an instance with any headroom. At N=15 the same
-solver lands +41.6%, eight times worse than greedy. One win and one collapse;
-neither should be quoted without the other. `qaoa` cannot reach either size.
+**The short version: the penalty-encoded QUBO is a net loss on this problem.**
+The control for it is `sa-perm` — the same simulated annealing, applied to
+sequences instead of a penalty-encoded bit vector. Across all twelve
+`planecluster-v1` instances at five seeds each, `sa-perm` matches the reference
+optimum everywhere and `sa-qubo` beats it nowhere, losing by up to 106% while
+consuming *more* wall clock. A plain 2-opt/or-opt local search also matches the
+reference on all twelve, deterministically, in 1–6 ms. See §7, which also
+retracts an earlier single-seed claim that the QUBO route had won at N=8.
 
 ## 1. The problem, restated for a binary encoder
 
@@ -127,26 +129,46 @@ Two things worth reading off this table:
    and "works well" are different properties, which is why `sweep_penalty`
    reports `provably_sufficient` as a separate column rather than filtering.
 
-### The default is not confirmed on harder instances
+### What a 6-instance study says about the default
 
-The same sweep on `planecluster-v1_n15_td30d` (225 variables, 1000 reads × 2000
-sweeps) is **not monotone and is bad everywhere**:
+The table above is one easy instance. `scripts/penalty_study.py` sweeps eight
+factors across all six time-dependent instances at five seeds each; the data is
+in `docs/data/penalty_study.json`. Two results.
 
-| factor | 1.01 | 1.05 | 1.1 | 1.5 |
-|---|---|---|---|---|
-| gap to optimum | +34.7% | +14.9% | **+41.6%** | +41.8% |
-| raw feasibility | 1.00 | 1.00 | 1.00 | 1.00 |
+**There is no consistent winner, so the default stays at 1.1.** Only two of the
+six instances discriminate between the provably sufficient factors at all — on
+N=4, 5, 8 and 10 they tie — and those two disagree:
 
-The shipped default of 1.1 is the *worst* of the four on that instance, and 1.05
-is nearly three times better. One instance is not enough to re-tune on — the
-ordering is not monotone, so this may be sampler noise rather than signal — but
-it is enough to say plainly that **`DEFAULT_PENALTY_SAFETY = 1.1` is calibrated
-on one easy instance and should not be trusted at N=15 and above.** Sweep it per
-instance rather than accepting the default, which is what `sweep_penalty` is for.
+| instance | 1.01 | 1.05 | **1.1** | 1.25 | 1.5 | 2.0 | 4.0 |
+|---|---|---|---|---|---|---|---|
+| N=10 | +3.16 | +3.31 | +5.18 | +6.50 | +11.37 | +16.73 | +43.49 |
+| N=15 | +32.02 | +32.21 | **+22.33** | +36.78 | +49.24 | +72.62 | +102.83 |
+| N=20 | +81.64 | **+70.25** | +105.77 | +101.16 | +120.44 | +149.41 | +196.16 |
 
-Note also what the table rules *out*: feasibility is 1.00 at every factor, so
-the penalty is not the reason `sa-qubo` performs badly at N=15 (§7). The
-constraint terms are working; the objective is simply not being optimised.
+An earlier spot check on N=15 alone made 1.1 look like the worst of four
+choices. It is the best of seven there. That is what tuning on one instance
+buys you.
+
+A methodological note, because the first version of this study got it wrong:
+**ties must vote for nobody.** The initial run reported "factor 1.01 wins 4/6"
+purely because the easy instances score +0.00% across the board and `min()`
+awards the win to whichever factor sorts first. Four of those six wins were
+instances that discriminated nothing.
+
+**The provable bound is expensive.** The sub-threshold factor 0.5 — which voids
+the guarantee of §3 — beats every provably sufficient factor on the instances
+that are actually hard, while still sampling 94–97% raw feasible:
+
+| instance | factor 0.5 (not sufficient) | best sufficient | raw feasibility at 0.5 |
+|---|---|---|---|
+| N=10 | +0.00% | +3.16% | 0.92 |
+| N=15 | +6.99% | +22.33% | 0.97 |
+| N=20 | +36.12% | +70.25% | 0.94 |
+
+Being able to *prove* that no infeasible assignment can win costs a factor of
+two to three in solution quality, and buys feasibility the sampler was already
+achieving without it. The guarantee is worth having when you need a guarantee;
+it is not free, and §3's derivation should be read with that price attached.
 
 ## 4. Time-slotted costs
 
@@ -188,6 +210,9 @@ constraints look like it solved the problem.
 | Simulated annealing on the QUBO | `sa-qubo` | `dwave-samplers` | $N \le 40$ by policy, a runtime wall not a correctness one |
 | QAOA, statevector simulator | `qaoa` | `qiskit` ≥ 2.0 + `scipy` | $N \le 4$ — **hard**, see below |
 | OR-Tools routing | `ortools` | `ortools` | no practical $N$ limit; **cannot do time-slotted costs** |
+| 2-opt/or-opt local search | `localsearch` | none | no limit; optimal on all 12 family instances in 1–6 ms |
+| Annealing over permutations | `sa-perm` | none | no limit; **the control for `sa-qubo`** |
+| Time-indexed MIP | `cpsat` | `ortools` | $N \le 40$; the only solver here that reports a *lower bound* |
 
 Oracles for measuring all three: Held-Karp (`exact`, $N \le 18$) and brute force
 (`brute`, $N \le 8$). They are not competitors.
@@ -289,57 +314,94 @@ unless the limit is quoted alongside.
 
 ## 7. What these numbers are worth
 
-The physics workspace has since landed plane-aware cost models and a committed
-`planecluster-v1` instance family, so this section no longer rests on the
-degenerate Hohmann instance. Held-Karp is the oracle throughout; `sa-qubo` at
-1000 reads x 2000 sweeps, seed 11; `ortools` at a 2 s limit.
+Re-measured across the whole `planecluster-v1` family, 5 seeds for every
+stochastic solver, means with standard deviations. Reference is Held-Karp where
+it reaches and CP-SAT above that. Full data in `docs/data/benchmark_family.json`,
+regenerate with `scripts/benchmark_family.py`.
 
-| instance | N | vars | optimum (km/s) | `greedy` | `sa-qubo` | `ortools` |
-|---|---|---|---|---|---|---|
-| `n8_static` | 8 | 64 | 1.0824 | +0.00% | +0.00% | +0.00% |
-| `n10_static` | 10 | 100 | 1.3268 | +0.00% | +12.57% | +0.00% |
-| `n8_td30d` | 8 | 64 | 1.1124 | +5.37% | **+0.00%** | **refused** |
-| `n15_td30d` | 15 | 225 | 2.1855 | +5.18% | +41.56% | **refused** |
+### Time-dependent (`td30d`) — the only instances with any headroom
 
-Raw feasibility was 1.00 on every row — the one-hot constraints are not the
-difficulty here, the objective is.
+| N | reference (km/s) | `greedy` | `localsearch` | `sa-perm` | `sa-qubo` |
+|---|---|---|---|---|---|
+| 4 | 0.5205 | +0.00% | +0.00% | +0.00% | +0.00% |
+| 5 | 0.8314 | +0.00% | +0.00% | +0.00% | +0.00% |
+| 8 | 1.1124 | +5.37% | +0.00% | +0.00% | +1.07% ±0.027 |
+| 10 | 1.5165 | +0.00% | +0.00% | +0.00% | +5.18% ±0.069 |
+| 15 | 2.1855 | +5.18% | +0.00% | +0.00% | +22.33% ±0.258 |
+| 20 | 3.6723 † | +0.00% | +0.00% | +0.00% | +105.77% ±0.684 |
 
-Three things this table actually says:
+### Static
 
-1. **Static instances still rank nothing.** Greedy ties the exact optimum on
-   *every* static instance in the family, N=4 through N=15. A plane-aware static
-   cost matrix is still near-metric, so nearest-neighbour is already optimal and
-   there is nothing for any solver to demonstrate. `sa-qubo` losing 12.6% at
-   `n10_static` is a statement about the penalty encoding's overhead on an easy
-   problem, not about annealing.
+| N | reference (km/s) | `greedy` | `localsearch` | `sa-perm` | `sa-qubo` |
+|---|---|---|---|---|---|
+| 4–8 | 0.5946 / 0.8296 / 1.0824 | +0.00% | +0.00% | +0.00% | +0.00% |
+| 10 | 1.3268 | +0.00% | +0.00% | +0.00% | +6.96% ±0.082 |
+| 15 | 2.0151 | +0.00% | +0.00% | +0.00% | +44.12% ±0.320 |
+| 20 | 2.4485 | +0.00% | +0.00% | +0.00% | +96.30% ±0.237 |
 
-2. **`n8_td30d` is the first genuine win in this project.** Greedy loses 5.37%;
-   `sa-qubo` reaches the exact optimum. Time dependence is what breaks
-   nearest-neighbour — a cheap next leg now can strand the servicer in a plane
-   that is expensive to leave three legs later — and that is exactly the
-   structure a QUBO carries natively, because the cost of leg *p* is baked into
-   the coupling between positions *p* and *p+1* rather than discovered greedily.
+† CP-SAT's best after 109 s without proving optimality; its lower bound left a
+gap. `localsearch`, `sa-perm` and CP-SAT independently land on the same value,
+so it is very probably optimal — but "three methods agree" is not a proof and
+the table says so. Every other reference row is proven optimal.
 
-3. **It does not survive to N=15.** At 225 variables `sa-qubo` lands +41.56%,
-   eight times worse than greedy. This is not a penalty-tuning artefact: the
-   sweep at that instance gives +34.7%, +14.9%, +41.6%, +41.8% at factors 1.01,
-   1.05, 1.1, 1.5 — non-monotonic, all bad, feasibility 1.00 throughout. The
-   constraint terms are doing their job and the objective is simply not being
-   optimised.
+### Retraction
 
-**Two data points are not a scaling law.** One win at N=8 and one collapse at
-N=15 is the honest summary, and the win must not be quoted without the collapse.
+**The earlier claim that `n8_td30d` was "the first genuine win in this project"
+was wrong, and is withdrawn.** It rested on a single seed. Over five seeds
+`sa-qubo` averages **+1.07%** there, not +0.00%; the zero was one lucky draw.
+Reporting a stochastic solver from one run is exactly the error this repository
+exists to avoid, and it got into the documentation anyway.
 
-### The baseline is missing where it matters
+### Does the QUBO encoding add anything? No.
 
-`ortools` refuses both `td30d` rows, because a routing arc-cost callback cannot
-express `C[t,i,j]` (§6). Those are precisely the two instances with any headroom.
-So the N=15 comparison currently has **no strong classical bar above Held-Karp
-range at all** — `sa-qubo`'s +41.56% is measured against an exact oracle that
-will itself run out at N=18, and against greedy. Filling that gap is the most
-valuable next piece of work in this workspace: without it, the first instance
-size where the quantum-inspired route might matter is also the first size where
-there is nothing credible to compare it to.
+That was the question the controls existed to answer, and the answer is clean
+because `sa-perm` is the same algorithm as `sa-qubo` — simulated annealing,
+comparable schedule — applied to sequences instead of a penalty-encoded bit
+vector. The only difference is the encoding.
+
+| N (td30d) | `sa-perm` | `sa-qubo` |
+|---|---|---|
+| 4 | +0.00% (2.0 s) | +0.00% (0.3 s) |
+| 5 | +0.00% (2.0 s) | +0.00% (0.4 s) |
+| 8 | +0.00% (2.0 s) | +1.07% (1.1 s) |
+| 10 | +0.00% (2.0 s) | +5.18% (1.8 s) |
+| 15 | +0.00% (2.0 s) | +22.33% (**4.5 s**) |
+| 20 | +0.00% (2.0 s) | +105.77% (**9.2 s**) |
+
+**`sa-qubo` does not beat `sa-perm` on a single instance at any size.** It ties
+on the two trivial ones and loses everywhere else, and the loss grows
+monotonically with N.
+
+The comparison is also *generous* to `sa-qubo` in two ways worth stating, since
+both cut against the conclusion:
+
+1. `sa-perm` is interpreted Python; `sa-qubo` is compiled C++ inside
+   `dwave-samplers`. A wall-clock match handicaps the permutation solver.
+2. `sa-qubo`'s budget is reads x sweeps, not wall clock, so at N=15 and N=20 it
+   actually *overran* the 2 s budget `sa-perm` was held to — 4.5 s and 9.2 s.
+   It got more time and still lost by 22% and 106%.
+
+So the penalty-encoded QUBO is not a neutral reformulation that a quantum
+sampler might later exploit. On this problem it is a **net loss**: it takes an
+objective that plain annealing optimises exactly and makes it one that the same
+annealer, given more time, cannot.
+
+### And the classical bar is higher than anything here reaches
+
+`localsearch` — greedy start, 2-opt and or-opt to a local optimum — matches the
+reference on **all twelve instances**, deterministically, in **1–6 ms**. CP-SAT
+proves optimality on eleven of twelve.
+
+That reframes the earlier "time dependence breaks greedy" finding. It does
+break greedy (+5.37% at N=8, +5.18% at N=15) — but greedy being weak is not the
+same as the problem being hard, and the difference was never measured until
+now. Two-opt fixes it instantly. **The `planecluster-v1` family has no headroom
+left for any solver**, classical or quantum; a benchmark on it can now only
+measure how far a solver falls short of something a 6 ms local search already
+achieves.
+
+Harder instances are the prerequisite for any further comparison here — see the
+limitations in `CLAUDE.md`.
 
 ## 8. Run records
 
@@ -369,7 +431,10 @@ omitted, so a run record never silently loses a row.
 | `sa-qubo` | $N^2$ spins | $N=40$ by policy | runtime |
 | `exact` (oracle) | — | $N=18$ | $2^N N^2$ |
 | `brute` (oracle) | — | $N=8$ | $N!$ |
-| `ortools` | — | none reached | time-limited heuristic |
+| `ortools` | — | none reached | time-limited heuristic, static costs only |
+| `cpsat` | $\approx N^3$ | $N=40$ by policy | proved N=15 in 2.2 s; N=20 unproven at 109 s |
+| `localsearch` | — | none reached | full 2-opt + or-opt neighbourhood, $O(N^3)$ per pass |
+| `sa-perm` | — | none reached | wall-clock budgeted |
 
 Every ceiling is reported as `feasible=False` with a reason in `metadata`, never
 as an exception — a benchmark has to record a miss, not crash on it.
