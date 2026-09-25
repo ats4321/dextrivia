@@ -260,7 +260,7 @@ Read honestly, that is one real effect and one disappointment:
 
 * **QAOA concentrates amplitude on the feasible subspace**, by roughly 94× on
   the static instance and 74× on the time-dependent one, and on the optimal
-  bitstring by ~160× and ~105×. The uniform baselines are exact, not estimated:
+  bitstring by 162× and 102×. The uniform baselines are exact, not estimated:
   24 permutation matrices among 65536 bitstrings, and the optimal-sequence
   count enumerated over all 24 orders. (`n4_static` has **two** optimal
   sequences because a static symmetric cost matrix makes a path and its reverse
@@ -271,8 +271,8 @@ Read honestly, that is one real effect and one disappointment:
   good permutations.
 
 Every QAOA runtime in this repository is **classical statevector simulation
-time** — 145.6 s ± 21.3 per run at N=4. It is not a quantum runtime and no
-quantum hardware was involved.
+time** — 64.3 s ± 7.3 per run on `n4_static` and 67.6 s ± 8.5 on `n4_td30d`. It
+is not a quantum runtime, and no quantum hardware was involved.
 
 ### Where OR-Tools and CP-SAT stand
 
@@ -345,11 +345,26 @@ of implementations.
 
 ### How reproducible is any of this?
 
-The canonical run was executed twice. **All 108 gap cells were identical**
-across the two runs — solution quality is deterministic given the seeds.
-Wall-clock was not: an earlier run overlapped with other work on the machine and
-inflated the N=15 block by about 6×, which is why the runtime figure carries the
-caveats it does and why the quality tables carry none.
+The canonical benchmark was executed four times while this was being built.
+**All 108 gap cells were identical every time** — solution quality is fully
+deterministic given the seeds, on every solver including the time-limited ones.
+
+Wall-clock was not, and that is worth stating plainly because it is the part
+most likely to be quoted:
+
+* One run overlapped with other work on the machine and inflated the N=15 block
+  by about 6×. Plotted, it drew `sa-perm` peaking at N=15 and *falling* at
+  N=20 — the opposite of its own N² scaling.
+* QAOA measured 145.6 s per run on a hot laptop and 64.3 s on a cool one, for
+  identical output.
+
+The committed run is the one made on an idle machine from a clean tree. This is
+why the runtime figure carries three caveats and the quality tables carry none.
+
+The manifest records `"dirty": true` with four `dirty_paths`, all of them the
+run's own output files under `results/canonical/` — the run necessarily writes
+into the tree it is measuring. No source file was uncommitted, which is exactly
+what listing the paths rather than a bare boolean lets you check.
 
 ---
 

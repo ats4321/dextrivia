@@ -1,13 +1,13 @@
 {
-  "timestamp_utc": "2026-09-24T10:36:00.837662+00:00",
-  "elapsed_s": 3418.45685505867,
+  "timestamp_utc": "2026-09-25T07:50:20.081844+00:00",
+  "elapsed_s": 2103.9557209014893,
   "command": ".venv/bin/dextrivia bench --out results/canonical",
   "git": {
-    "sha": "5183e6d97d26c671ce24c68aeba1597bf8857045",
+    "sha": "2dfb10ac5dbbacccf96331e5119c4a2b60effbe8",
     "branch": "benchmark-harness-and-readme",
     "dirty": true,
     "dirty_paths": [
-      "esults/canonical/manifest.json",
+      "results/canonical/manifest.json",
       "results/canonical/penalty_sweep.csv",
       "results/canonical/results.csv",
       "results/canonical/summary.csv"
