@@ -16,25 +16,25 @@ reference is the best result any solver achieved and is labelled **best-known**
 
 **Static costs `C[i,j]`**
 
-| instance | N | reference (km/s) | `greedy` | `local-search` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
+| instance | N | reference (km/s) | `greedy` | `localsearch` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
 |---|---|---|---|---|---|---|---|---|---|
 | `n4_static` | 4 | 0.5946 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
 | `n5_static` | 5 | 0.8296 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | refused |
 | `n8_static` | 8 | 1.0824 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.61% ± 1.22 | refused |
 | `n10_static` | 10 | 1.3268 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +11.64% ± 6.22 | refused |
-| `n15_static` | 15 | 2.0151 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.22% ± 0.27 | +63.57% ± 12.59 | refused |
-| `n20_static` | 20 | 2.4485 **best-known** | +0.00% | +0.00% | +0.00% | +0.00% | +12.08% ± 2.49 | +121.04% ± 9.00 | refused |
+| `n15_static` | 15 | 2.0151 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +63.57% ± 12.59 | refused |
+| `n20_static` | 20 | 2.4485 **best-known** | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +121.04% ± 9.00 | refused |
 
 **Time-dependent costs `C[t,i,j]`** (leg *k* departs 30 days after leg *k-1*)
 
-| instance | N | reference (km/s) | `greedy` | `local-search` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
+| instance | N | reference (km/s) | `greedy` | `localsearch` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
 |---|---|---|---|---|---|---|---|---|---|
 | `n4_td30d` | 4 | 0.5205 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | +0.00% |
 | `n5_td30d` | 5 | 0.8314 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | refused |
 | `n8_td30d` | 8 | 1.1124 *exact* | **+5.37%** | +0.00% | +0.00% | refused | +0.00% | +3.30% ± 2.70 | refused |
 | `n10_td30d` | 10 | 1.5165 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +14.65% ± 6.95 | refused |
-| `n15_td30d` | 15 | 2.1855 *exact* | **+5.18%** | +0.00% | +0.00% | refused | +2.77% ± 1.04 | +47.20% ± 10.27 | refused |
-| `n20_td30d` | 20 | 3.6723 **best-known** | +0.00% | +0.00% | +0.00% | refused | +18.07% ± 6.65 | +108.17% ± 9.67 | refused |
+| `n15_td30d` | 15 | 2.1855 *exact* | **+5.18%** | +0.00% | +0.00% | refused | +0.00% | +47.20% ± 10.27 | refused |
+| `n20_td30d` | 20 | 3.6723 **best-known** | +0.00% | +0.00% | +0.00% | refused | +0.00% | +108.17% ± 9.67 | refused |
 
 "refused" is a recorded miss with a reason, not a crash and not a blank:
 `qaoa` above N=4 (the qubit wall), `ortools` on every time-dependent instance
@@ -44,23 +44,28 @@ above N=18 (Held-Karp memory).
 ### What this table says
 
 **No quantum or quantum-inspired solver here beats the classical baselines.**
-The three best solvers on this problem are `cpsat`, `local-search` and, almost
-everywhere, plain `greedy`. That is the result.
+Three classical solvers — `localsearch`, `cpsat` and `sa-perm` — tie the
+reference on **all twelve instances**. `sa-qubo` is the only solver in the
+benchmark that fails, and `qaoa` cannot leave N=4. That is the result.
 
 **The QUBO encoding, not the annealing, is what fails.** `sa-perm` and `sa-qubo`
-minimise the same objective with the same annealer budget — same reads, same
-sweeps, and N² proposed moves per sweep on both sides. They differ only in what
-they search: a permutation, or N² binaries with penalty terms. At N=15 that
-difference is **+2.77% against +47.20%**, and at N=20 **+18.07% against
-+108.17%**. Reporting `sa-qubo` without this control would have left the blame
-ambiguous; with it, the position encoding is where the quality goes.
+are the same idea — simulated annealing on this objective — applied to two
+different search spaces: the permutations themselves, or N² binaries with
+penalty terms. `sa-perm` ties the reference everywhere in **one second per
+run**. `sa-qubo` degrades monotonically with N to **+121%**. Reporting
+`sa-qubo` without this control would have left the blame ambiguous between the
+annealer and the encoding; with it, the encoding is where the quality goes.
 
-**Greedy is very hard to beat here, and only time dependence beats it.** Greedy
-ties the exact optimum on all six static instances and on four of six
-time-dependent ones. Its only two failures are `n8_td30d` (+5.37%) and
-`n15_td30d` (+5.18%) — the cases where committing to a cheap early leg strands
-the servicer in a plane that is expensive to leave once the nodes have drifted.
-Those two cells are the entire headroom this benchmark contains.
+**The cheapest solver in the benchmark also ties everywhere.** `localsearch`
+— greedy, then 2-opt and or-opt to a local optimum — matches the reference on
+all twelve instances in **at most 3 ms**, against a 60 s budget for `cpsat` and
+5 s for `ortools`. The two cells where plain `greedy` loses (`n8_td30d` +5.37%,
+`n15_td30d` +5.18%) are repaired by a few milliseconds of local search.
+
+**So this instance family has essentially no headroom left.** That is a finding
+about the benchmark, not a triumph: the interesting question has moved to
+instances hard enough that a millisecond heuristic does not already solve
+them.
 
 ---
 
@@ -216,20 +221,31 @@ benchmark at every size above N=5, and it degrades with N: +0.61% at N=8,
 instances are no different (+3.30%, +14.65%, +47.20%, +108.17%).
 
 The reason is **the encoding, not the annealer**. `sa-perm` anneals the same
-objective, with the same sampler budget, over permutations instead of N²
-penalised binaries:
+objective over permutations instead of N² penalised binaries:
 
-| instance | `sa-perm` | `sa-qubo` | both at |
-|---|---|---|---|
-| `n10_td30d` | +0.00% | +14.65% ± 6.95 | 500 reads × 1000 sweeps |
-| `n15_td30d` | +2.77% ± 1.04 | +47.20% ± 10.27 | 112.5 M proposed moves |
-| `n20_td30d` | +18.07% ± 6.65 | +108.17% ± 9.67 | 200 M proposed moves |
+| instance | `sa-perm` | `sa-qubo` |
+|---|---|---|
+| `n8_td30d` | +0.00% | +3.30% ± 2.70 |
+| `n10_td30d` | +0.00% | +14.65% ± 6.95 |
+| `n15_td30d` | +0.00% | +47.20% ± 10.27 |
+| `n20_td30d` | +0.00% | +108.17% ± 9.67 |
 
-Both counts are recorded in each solver's metadata, and the matched-budget
-formula is asserted in `tests/test_bench_solvers.py`, so the claim is auditable
-rather than assertable. Wall-clock is *not* matched and cannot be — `sa-qubo` is
-compiled C++ and `sa-perm` is numpy — which is precisely why the comparison is
-made on proposals.
+`sa-perm` is given a **1 second wall-clock budget** across 4 restarts, against
+`sa-qubo`'s 500 reads × 1000 sweeps, which costs it 0.28–2.30 s. The comparison
+is therefore generous to `sa-qubo` twice over: it gets *more* wall clock at
+N=15 and N=20, and it is compiled C++ (`dwave-samplers`) against interpreted
+Python. Both budget currencies — the wall-clock limit and the realised
+iteration count — are recorded in `sa-perm`'s metadata so the comparison can be
+audited rather than believed.
+
+One caveat stated plainly: `sa-perm` **starts from the greedy solution**, so it
+cannot do worse than greedy, and part of its +0.00% is that head start rather
+than the annealing. `localsearch` — the same neighbourhood at zero temperature,
+also greedy-started — already ties everywhere in milliseconds, which suggests
+the annealing contributes little here beyond what the local search does. What
+the comparison does establish is narrower and still worth having: **at a budget
+that favours it, the QUBO encoding loses badly to searching the permutations
+directly.**
 
 The QUBO's penalty terms are not the problem either. **Raw feasibility is 1.00
 at every penalty weight at or above the provable threshold, on every
@@ -271,7 +287,7 @@ Read honestly, that is one real effect and one disappointment:
   good permutations.
 
 Every QAOA runtime in this repository is **classical statevector simulation
-time** — 64.3 s ± 7.3 per run on `n4_static` and 67.6 s ± 8.5 on `n4_td30d`. It
+time** — 63.3 s ± 7.3 per run on `n4_static` and 64.2 s ± 7.1 on `n4_td30d`. It
 is not a quantum runtime, and no quantum hardware was involved.
 
 ### Where OR-Tools and CP-SAT stand
@@ -282,18 +298,18 @@ callback is a function of `(from, to)` and has no access to how many legs have
 been flown, so it cannot express `C[t,i,j]`. It returns a recorded miss instead
 of silently optimising a different problem.
 
-`cpsat` — a position-indexed CP-SAT model added for this benchmark — has no such
-blind spot, because indexing a leg variable by position is exactly what a time
-slot is. **It ties the reference on all twelve instances**, including both
-time-dependent ones and both N=20 ones, and it is the only solver here that can
-certify anything: it proved optimality outright up to N=10. Two honest caveats:
-it is **warm-started from greedy** (so its result is a statement about CP-SAT
-*plus* greedy, recorded in its metadata), and its runtime is a **configured time
-limit**, not a measurement.
+`cpsat` — a position-indexed CP-SAT model — has no such blind spot, because
+indexing a leg variable by position is exactly what a time slot is. **It ties
+the reference on all twelve instances**, including both time-dependent ones and
+both N=20 ones, and it is the only solver here that can certify anything: it
+**proved optimality on 55 of its 60 runs**, the exceptions being the two N=20
+instances where it returns a bound instead. Its runtime is a **configured time
+limit** (60 s), not a measurement.
 
-`local-search` (2-opt + or-opt, evaluated through `path_cost` so it handles
-time-slotted costs) also ties the reference on all twelve, at a tenth of the
-CP-SAT time limit.
+`localsearch` (greedy start, then 2-opt and or-opt to a local optimum, every
+move re-evaluated through `path_cost` so it is correct on time-slotted costs)
+also ties the reference on all twelve — in **0.000–0.003 s**. It is the
+cheapest solver in the benchmark and nothing beats it on quality.
 
 ### The penalty study
 
@@ -326,7 +342,7 @@ Two things follow, and they point the same way:
 
 The default should be swept per instance rather than trusted. This does not
 rescue `sa-qubo`: even its best weight at `n15_td30d` (+18.4%) is far worse than
-`sa-perm` at +2.77%.
+`sa-perm`, `localsearch` and `cpsat`, all of which reach the optimum there.
 
 ### Time to solution
 
@@ -345,26 +361,51 @@ of implementations.
 
 ### How reproducible is any of this?
 
-The canonical benchmark was executed four times while this was being built.
-**All 108 gap cells were identical every time** — solution quality is fully
-deterministic given the seeds, on every solver including the time-limited ones.
+The benchmark was executed five times while this was being built.
 
-Wall-clock was not, and that is worth stating plainly because it is the part
-most likely to be quoted:
+**Solution quality is fully deterministic given the seeds.** Across the first
+four runs all 108 gap cells were identical every time. The fifth run swapped
+three solvers (`cpsat`, `localsearch`, `sa-perm` — see the note below), and the
+**72 cells belonging to the six unchanged solvers came out identical again**,
+which is the strongest statement available: the harness, the instances and the
+seeds reproduce exactly, and only a deliberate change to a solver moves a
+number.
 
-* One run overlapped with other work on the machine and inflated the N=15 block
-  by about 6×. Plotted, it drew `sa-perm` peaking at N=15 and *falling* at
-  N=20 — the opposite of its own N² scaling.
-* QAOA measured 145.6 s per run on a hot laptop and 64.3 s on a cool one, for
+Wall-clock is *not* deterministic, and that is worth stating plainly because it
+is the part most likely to be quoted:
+
+* One run overlapped with other work on this laptop and inflated the N=15 block
+  by about 6×. Plotted, it drew the permutation annealer peaking at N=15 and
+  *falling* at N=20 — the opposite of its own scaling. That run was discarded
+  rather than shipped with a caveat.
+* QAOA measured 145.6 s per run on a hot laptop and 63.3 s on a cool one, for
   identical output.
 
-The committed run is the one made on an idle machine from a clean tree. This is
-why the runtime figure carries three caveats and the quality tables carry none.
+The committed run was made on an idle machine from a clean tree. This is why
+the runtime figure carries three caveats and the quality tables carry none.
 
 The manifest records `"dirty": true` with four `dirty_paths`, all of them the
 run's own output files under `results/canonical/` — the run necessarily writes
 into the tree it is measuring. No source file was uncommitted, which is exactly
 what listing the paths rather than a bare boolean lets you check.
+
+### A note on where the solvers came from
+
+`cpsat`, `localsearch` and `sa-perm` were built by a parallel workspace and
+merged to `main` first. This branch had independently built its own versions of
+all three; they were deleted on merge, because two implementations of one solver
+cannot both live in the registry. The numbers above are the merged solvers'.
+Two design differences are worth knowing, since both were decided the other way
+here before the merge:
+
+* **`sa-perm`'s budget is matched to `sa-qubo` by wall clock**, not by proposed
+  moves. That makes the comparison conservative (interpreted Python against
+  compiled C++) but also makes the result depend on the machine it ran on, which
+  a proposal-matched budget would not.
+* **`cpsat` has no greedy warm start** and a 60 s limit. Without a warm start,
+  and at a 10 s limit, CP-SAT was measured returning a path *worse* than greedy
+  at N=20; the longer budget appears to cover that, and it proves optimality on
+  55 of 60 runs.
 
 ---
 
@@ -419,7 +460,7 @@ src/dextrivia/
 |-- cli.py                  dextrivia fetch | build | solve | bench
 |-- costs/                  hohmann (baseline), realistic (plane-aware), selection
 |-- qubo/                   open-path QUBO: formulation, decode, repair, penalty
-|-- solvers/                greedy, exact, brute, local-search, sa-perm,
+|-- solvers/                greedy, exact, brute, localsearch, sa-perm,
 |                           sa-qubo, qaoa, ortools, cpsat
 data/snapshots/             committed, timestamped TLE sets
 data/instances/             the committed plane-cluster instance family

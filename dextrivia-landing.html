@@ -95,7 +95,7 @@
     <div class="stat"><div class="v">0</div><div class="k">quantum or quantum-inspired solvers that beat the classical baselines</div></div>
     <div class="stat"><div class="v">N=4</div><div class="k">largest instance QAOA can reach, against N=18 for an exact 1962 dynamic program</div></div>
     <div class="stat"><div class="v">396</div><div class="k">solver runs in the committed benchmark, 88 of them recorded misses</div></div>
-    <div class="stat"><div class="v">108/108</div><div class="k">quality numbers identical across two independent runs</div></div>
+    <div class="stat"><div class="v">3</div><div class="k">classical solvers tying the reference on every instance; the QUBO annealer ties none above N=5</div></div>
   </div>
 
   <h2>The result</h2>
@@ -108,15 +108,14 @@
     because a gap measured against the best thing found is not an optimality gap.</figcaption>
   </figure>
 
-  <p class="lead">Three solvers tie the reference on all twelve instances:
-  <code>cpsat</code>, <code>local-search</code>, and — nearly everywhere — plain nearest-neighbour
-  <code>greedy</code>. The QUBO-based annealer is the worst solver in the benchmark at every size
-  above N=5.</p>
+  <p class="lead">Three classical solvers tie the reference on all twelve instances:
+  <code>localsearch</code>, <code>cpsat</code> and <code>sa-perm</code>. The QUBO-based annealer
+  is the only solver in the benchmark that fails, and QAOA cannot leave N=4.</p>
 
   <table>
     <thead><tr>
       <th>instance</th><th class="num">N</th><th class="num">reference (km/s)</th>
-      <th class="num">greedy</th><th class="num">local-search</th><th class="num">cpsat</th>
+      <th class="num">greedy</th><th class="num">localsearch</th><th class="num">cpsat</th>
       <th class="num">ortools</th><th class="num">sa-perm</th><th class="num">sa-qubo</th><th class="num">qaoa</th>
     </tr></thead>
     <tbody>
@@ -124,14 +123,14 @@
       <tr><td>n5_static</td><td class="num">5</td><td class="num">0.8296</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
       <tr><td>n8_static</td><td class="num">8</td><td class="num">1.0824</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.61%</td><td class="num">refused</td></tr>
       <tr><td>n10_static</td><td class="num">10</td><td class="num">1.3268</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+11.64%</td><td class="num">refused</td></tr>
-      <tr><td>n15_static</td><td class="num">15</td><td class="num">2.0151</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.22%</td><td class="num">+63.57%</td><td class="num">refused</td></tr>
-      <tr><td>n20_static <span class="tag">best-known</span></td><td class="num">20</td><td class="num">2.4485</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+12.08%</td><td class="num">+121.04%</td><td class="num">refused</td></tr>
+      <tr><td>n15_static</td><td class="num">15</td><td class="num">2.0151</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+63.57%</td><td class="num">refused</td></tr>
+      <tr><td>n20_static <span class="tag">best-known</span></td><td class="num">20</td><td class="num">2.4485</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+121.04%</td><td class="num">refused</td></tr>
       <tr><td>n4_td30d</td><td class="num">4</td><td class="num">0.5205</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
       <tr><td>n5_td30d</td><td class="num">5</td><td class="num">0.8314</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
       <tr><td>n8_td30d</td><td class="num">8</td><td class="num">1.1124</td><td class="num">+5.37%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+3.30%</td><td class="num">refused</td></tr>
       <tr><td>n10_td30d</td><td class="num">10</td><td class="num">1.5165</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+14.65%</td><td class="num">refused</td></tr>
-      <tr><td>n15_td30d</td><td class="num">15</td><td class="num">2.1855</td><td class="num">+5.18%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+2.77%</td><td class="num">+47.20%</td><td class="num">refused</td></tr>
-      <tr><td>n20_td30d <span class="tag">best-known</span></td><td class="num">20</td><td class="num">3.6723</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+18.07%</td><td class="num">+108.17%</td><td class="num">refused</td></tr>
+      <tr><td>n15_td30d</td><td class="num">15</td><td class="num">2.1855</td><td class="num">+5.18%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+47.20%</td><td class="num">refused</td></tr>
+      <tr><td>n20_td30d <span class="tag">best-known</span></td><td class="num">20</td><td class="num">3.6723</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+108.17%</td><td class="num">refused</td></tr>
     </tbody>
   </table>
   <p style="font-size:0.86rem"><code>refused</code> is a recorded miss with a stated reason, not a
@@ -143,22 +142,33 @@
   annealer budget — the same reads, the same sweeps, and N² proposed moves per sweep on both
   sides. They differ only in what they search: a permutation, or N² binaries plus penalty terms.</p>
   <table>
-    <thead><tr><th>instance</th><th class="num">sa-perm</th><th class="num">sa-qubo</th><th>both at</th></tr></thead>
+    <thead><tr><th>instance</th><th class="num">sa-perm</th><th class="num">sa-qubo</th></tr></thead>
     <tbody>
-      <tr><td>n10_td30d</td><td class="num">+0.00%</td><td class="num">+14.65% ± 6.95</td><td>500 reads × 1000 sweeps</td></tr>
-      <tr><td>n15_td30d</td><td class="num">+2.77% ± 1.04</td><td class="num">+47.20% ± 10.27</td><td>112.5 M proposed moves</td></tr>
-      <tr><td>n20_td30d</td><td class="num">+18.07% ± 6.65</td><td class="num">+108.17% ± 9.67</td><td>200 M proposed moves</td></tr>
+      <tr><td>n8_td30d</td><td class="num">+0.00%</td><td class="num">+3.30% ± 2.70</td></tr>
+      <tr><td>n10_td30d</td><td class="num">+0.00%</td><td class="num">+14.65% ± 6.95</td></tr>
+      <tr><td>n15_td30d</td><td class="num">+0.00%</td><td class="num">+47.20% ± 10.27</td></tr>
+      <tr><td>n20_td30d</td><td class="num">+0.00%</td><td class="num">+108.17% ± 9.67</td></tr>
     </tbody>
   </table>
-  <p>Both proposal counts are recorded in each solver's metadata and the matched-budget formula is
-  asserted in the test suite, so the claim is auditable rather than assertable. The penalty terms
-  are not the culprit either: raw feasibility is 1.00 at every penalty weight at or above the
-  provable threshold. The constraints are satisfied; the objective is not being optimised.</p>
+  <p><code>sa-perm</code> gets a 1-second wall-clock budget; <code>sa-qubo</code>'s 500 reads ×
+  1000 sweeps costs it 0.28–2.30 s. The comparison is generous to <code>sa-qubo</code> twice over
+  — more wall clock at the larger sizes, and compiled C++ against interpreted Python. Both budget
+  currencies are recorded so it can be audited. The penalty terms are not the culprit either: raw
+  feasibility is 1.00 at every weight at or above the provable threshold. The constraints are
+  satisfied; the objective is not being optimised.</p>
+  <p>One caveat stated plainly: <code>sa-perm</code> starts from the greedy solution, so part of
+  its +0.00% is that head start. <code>localsearch</code> — the same neighbourhood at zero
+  temperature — already ties everywhere in under 3 ms, which suggests the annealing adds little
+  here. What the comparison does establish is narrower and still worth having: at a budget that
+  favours it, the QUBO encoding loses badly to searching permutations directly.</p>
 
-  <div class="note"><strong>Greedy is hard to beat here, and only time dependence beats it.</strong>
-  Nearest-neighbour ties the exact optimum on all six static instances and four of six
-  time-dependent ones. Its only two failures — <code>n8_td30d</code> at +5.37% and
-  <code>n15_td30d</code> at +5.18% — are the entire headroom this benchmark contains.</div>
+  <div class="note"><strong>The cheapest solver in the benchmark also ties everywhere.</strong>
+  <code>localsearch</code> — greedy, then 2-opt and or-opt to a local optimum — matches the
+  reference on all twelve instances in at most 3 ms, against 60 s for <code>cpsat</code>. The two
+  cells where plain <code>greedy</code> loses (<code>n8_td30d</code> +5.37%,
+  <code>n15_td30d</code> +5.18%) are repaired by a few milliseconds of local search. So this
+  instance family has essentially no headroom left — a finding about the benchmark, not a
+  triumph.</div>
 
   <h2>The problem</h2>
   <p>Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost to
@@ -240,7 +250,7 @@
   6.6% and 6.5% better than a uniformly random permutation. It is finding permutations, not good
   permutations.</p>
   <p>Every QAOA runtime in this project is <strong>classical statevector simulation time</strong>
-  (64.3 s ± 7.3 per run at N=4). It is not a quantum runtime, and no quantum hardware was
+  (63.3 s ± 7.3 per run at N=4). It is not a quantum runtime, and no quantum hardware was
   involved.</p>
 
   <h2>Reproduce it</h2>
@@ -254,9 +264,9 @@ uv run python scripts/plot_benchmark.py results/my-run</code></pre>
   <ul>
     <li><strong>The cost model still ignores phasing</strong> — the single largest omission. The
     servicer is assumed to arrive at the right point in the target's orbit for free.</li>
-    <li><strong>Only two cells in the whole benchmark have headroom.</strong> Greedy ties the
-    optimum on ten of twelve instances, so most of the table ranks nothing. A stronger claim about
-    any solver needs harder instances, not more seeds.</li>
+    <li><strong>The instance family has no headroom left.</strong> A millisecond local search
+    ties the reference on all twelve instances, so the table ranks almost nothing. A stronger claim
+    about any solver needs harder instances, not more seeds.</li>
     <li><strong>N=20 is uncertified.</strong> Held-Karp cannot run there, and CP-SAT's lower bound
     is still 0.0 at its time limit, so "best-known" at N=20 is exactly that and nothing more.</li>
     <li><strong>One QUBO formulation, one annealer, one QAOA depth range.</strong> These results
