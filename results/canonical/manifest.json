@@ -1,11 +1,17 @@
 {
-  "timestamp_utc": "2026-09-24T09:29:30.952991+00:00",
-  "elapsed_s": 3527.0237140655518,
+  "timestamp_utc": "2026-09-24T10:36:00.837662+00:00",
+  "elapsed_s": 3418.45685505867,
   "command": ".venv/bin/dextrivia bench --out results/canonical",
   "git": {
-    "sha": "bbc98d74664b402351e59ffbf6f752d951d8604f",
+    "sha": "5183e6d97d26c671ce24c68aeba1597bf8857045",
     "branch": "benchmark-harness-and-readme",
-    "dirty": true
+    "dirty": true,
+    "dirty_paths": [
+      "esults/canonical/manifest.json",
+      "results/canonical/penalty_sweep.csv",
+      "results/canonical/results.csv",
+      "results/canonical/summary.csv"
+    ]
   },
   "snapshots": [
     "iridium33_20260402.json"

@@ -6,11 +6,61 @@ Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost t
 transfer between any two, find the visiting order that costs the least. The
 deliverable of this repository is **the comparison**, not any one solver.
 
-<!-- HEADLINE-FIGURE -->
+![Solution quality by solver and problem size](docs/figures/bench_gap_vs_n.png)
 
-<!-- HEADLINE-TABLE -->
+**Gap above the reference, mean ± 1 s.d. over 5 seeds.** Every cell comes from
+[`results/canonical/summary.csv`](results/canonical/summary.csv). `exact` is
+Held-Karp and is the reference wherever it ran; at N=20 it cannot run, so the
+reference is the best result any solver achieved and is labelled **best-known**
+— that is not an optimality gap and is not presented as one.
 
-<!-- HEADLINE-PROSE -->
+**Static costs `C[i,j]`**
+
+| instance | N | reference (km/s) | `greedy` | `local-search` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
+|---|---|---|---|---|---|---|---|---|---|
+| `n4_static` | 4 | 0.5946 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_static` | 5 | 0.8296 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | refused |
+| `n8_static` | 8 | 1.0824 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.61% ± 1.22 | refused |
+| `n10_static` | 10 | 1.3268 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +11.64% ± 6.22 | refused |
+| `n15_static` | 15 | 2.0151 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.22% ± 0.27 | +63.57% ± 12.59 | refused |
+| `n20_static` | 20 | 2.4485 **best-known** | +0.00% | +0.00% | +0.00% | +0.00% | +12.08% ± 2.49 | +121.04% ± 9.00 | refused |
+
+**Time-dependent costs `C[t,i,j]`** (leg *k* departs 30 days after leg *k-1*)
+
+| instance | N | reference (km/s) | `greedy` | `local-search` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
+|---|---|---|---|---|---|---|---|---|---|
+| `n4_td30d` | 4 | 0.5205 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | +0.00% |
+| `n5_td30d` | 5 | 0.8314 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | refused |
+| `n8_td30d` | 8 | 1.1124 *exact* | **+5.37%** | +0.00% | +0.00% | refused | +0.00% | +3.30% ± 2.70 | refused |
+| `n10_td30d` | 10 | 1.5165 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +14.65% ± 6.95 | refused |
+| `n15_td30d` | 15 | 2.1855 *exact* | **+5.18%** | +0.00% | +0.00% | refused | +2.77% ± 1.04 | +47.20% ± 10.27 | refused |
+| `n20_td30d` | 20 | 3.6723 **best-known** | +0.00% | +0.00% | +0.00% | refused | +18.07% ± 6.65 | +108.17% ± 9.67 | refused |
+
+"refused" is a recorded miss with a reason, not a crash and not a blank:
+`qaoa` above N=4 (the qubit wall), `ortools` on every time-dependent instance
+(a routing arc-cost callback cannot see how many legs have been flown), `exact`
+above N=18 (Held-Karp memory).
+
+### What this table says
+
+**No quantum or quantum-inspired solver here beats the classical baselines.**
+The three best solvers on this problem are `cpsat`, `local-search` and, almost
+everywhere, plain `greedy`. That is the result.
+
+**The QUBO encoding, not the annealing, is what fails.** `sa-perm` and `sa-qubo`
+minimise the same objective with the same annealer budget — same reads, same
+sweeps, and N² proposed moves per sweep on both sides. They differ only in what
+they search: a permutation, or N² binaries with penalty terms. At N=15 that
+difference is **+2.77% against +47.20%**, and at N=20 **+18.07% against
++108.17%**. Reporting `sa-qubo` without this control would have left the blame
+ambiguous; with it, the position encoding is where the quality goes.
+
+**Greedy is very hard to beat here, and only time dependence beats it.** Greedy
+ties the exact optimum on all six static instances and on four of six
+time-dependent ones. Its only two failures are `n8_td30d` (+5.37%) and
+`n15_td30d` (+5.18%) — the cases where committing to a cheap early leg strands
+the servicer in a plane that is expensive to leave once the nodes have drifted.
+Those two cells are the entire headroom this benchmark contains.
 
 ---
 
@@ -156,7 +206,150 @@ sampler that never once satisfied a constraint look successful.
 
 ---
 
-<!-- CONCLUSIONS -->
+## Conclusions
+
+### Where simulated annealing stands
+
+`sa-qubo` — simulated annealing on the QUBO — is the worst solver in this
+benchmark at every size above N=5, and it degrades with N: +0.61% at N=8,
++11.64% at N=10, +63.57% at N=15, +121.04% at N=20 (static). Time-dependent
+instances are no different (+3.30%, +14.65%, +47.20%, +108.17%).
+
+The reason is **the encoding, not the annealer**. `sa-perm` anneals the same
+objective, with the same sampler budget, over permutations instead of N²
+penalised binaries:
+
+| instance | `sa-perm` | `sa-qubo` | both at |
+|---|---|---|---|
+| `n10_td30d` | +0.00% | +14.65% ± 6.95 | 500 reads × 1000 sweeps |
+| `n15_td30d` | +2.77% ± 1.04 | +47.20% ± 10.27 | 112.5 M proposed moves |
+| `n20_td30d` | +18.07% ± 6.65 | +108.17% ± 9.67 | 200 M proposed moves |
+
+Both counts are recorded in each solver's metadata, and the matched-budget
+formula is asserted in `tests/test_bench_solvers.py`, so the claim is auditable
+rather than assertable. Wall-clock is *not* matched and cannot be — `sa-qubo` is
+compiled C++ and `sa-perm` is numpy — which is precisely why the comparison is
+made on proposals.
+
+The QUBO's penalty terms are not the problem either. **Raw feasibility is 1.00
+at every penalty weight at or above the provable threshold, on every
+time-dependent instance.** The constraints are satisfied; the objective is not
+being optimised. See the penalty study below.
+
+### Where QAOA stands
+
+**QAOA runs at N=4 and nowhere else in this benchmark.** The position encoding
+needs N² qubits and a dense statevector is 2^(N²) amplitudes: N=5 is 512 MB
+before the optimiser evaluates anything, N=6 is 1 TB. `exact` — a
+dynamic program from 1962 — reaches N=18 on the same laptop. **The quantum
+solver's ceiling sits an order of magnitude below the classical oracle's, on
+the same problem, in the same encoding. That gap is the headline quantum
+result of this project.**
+
+At N=4 the +0.00% gap in the table above **is not evidence of anything**. There
+are 24 possible sequences among 2^16 bitstrings; best-of-4096-shots plus repair
+recovers the optimum from uniform random bits. The only numbers at this size
+that carry signal are the ones measured against chance:
+
+| instance | raw feasibility | uniform baseline | P(optimal bitstring) | uniform P(optimal) | mean Δv of feasible samples | mean Δv of a random permutation |
+|---|---|---|---|---|---|---|
+| `n4_static` | **0.0344** ± 0.0251 | 0.000366 | **0.0049** ± 0.0041 | 0.0000305 (2 optimal sequences) | 0.9586 km/s | 1.0261 km/s |
+| `n4_td30d` | **0.0270** ± 0.0229 | 0.000366 | **0.0016** ± 0.0017 | 0.0000153 (1 optimal sequence) | 0.9103 km/s | 0.9735 km/s |
+
+Read honestly, that is one real effect and one disappointment:
+
+* **QAOA concentrates amplitude on the feasible subspace**, by roughly 94× on
+  the static instance and 74× on the time-dependent one, and on the optimal
+  bitstring by ~160× and ~105×. The uniform baselines are exact, not estimated:
+  24 permutation matrices among 65536 bitstrings, and the optimal-sequence
+  count enumerated over all 24 orders. (`n4_static` has **two** optimal
+  sequences because a static symmetric cost matrix makes a path and its reverse
+  tie; time dependence breaks that symmetry, leaving one.)
+* **Within the feasible set it barely optimises at all.** The mean delta-v of
+  its feasible samples is 6.6% better than a uniformly random permutation on
+  `n4_static` and 6.5% better on `n4_td30d`. It is finding permutations, not
+  good permutations.
+
+Every QAOA runtime in this repository is **classical statevector simulation
+time** — 145.6 s ± 21.3 per run at N=4. It is not a quantum runtime and no
+quantum hardware was involved.
+
+### Where OR-Tools and CP-SAT stand
+
+`ortools` (routing, guided local search) ties the reference on **all six static
+instances** and **refuses all six time-dependent ones**. A routing arc-cost
+callback is a function of `(from, to)` and has no access to how many legs have
+been flown, so it cannot express `C[t,i,j]`. It returns a recorded miss instead
+of silently optimising a different problem.
+
+`cpsat` — a position-indexed CP-SAT model added for this benchmark — has no such
+blind spot, because indexing a leg variable by position is exactly what a time
+slot is. **It ties the reference on all twelve instances**, including both
+time-dependent ones and both N=20 ones, and it is the only solver here that can
+certify anything: it proved optimality outright up to N=10. Two honest caveats:
+it is **warm-started from greedy** (so its result is a statement about CP-SAT
+*plus* greedy, recorded in its metadata), and its runtime is a **configured time
+limit**, not a measurement.
+
+`local-search` (2-opt + or-opt, evaluated through `path_cost` so it handles
+time-slotted costs) also ties the reference on all twelve, at a tenth of the
+CP-SAT time limit.
+
+### The penalty study
+
+`DEFAULT_PENALTY_SAFETY = 1.1` was calibrated on one easy instance. Across all
+six time-dependent instances × 5 seeds × 8 weights, **it is dominated
+everywhere**. Gap above the reference, mean over 5 seeds:
+
+| instance | 0.5 | 1.0 | 1.05 | **1.1** | 1.5 | 2.0 | 4.0 | 8.0 |
+|---|---|---|---|---|---|---|---|---|
+| `n4_td30d` | +0.0 | +0.0 | +0.0 | **+0.0** | +0.0 | +0.0 | +0.0 | +0.0 |
+| `n5_td30d` | +0.0 | +0.0 | +0.0 | **+0.0** | +0.0 | +0.0 | +0.0 | +0.0 |
+| `n8_td30d` | +0.0 | +2.1 | +0.0 | **+3.3** | +3.4 | +7.9 | +11.6 | +48.2 |
+| `n10_td30d` | +0.0 | +8.8 | +7.2 | **+14.7** | +15.3 | +26.4 | +52.6 | +61.4 |
+| `n15_td30d` | +18.4 | +38.5 | +41.8 | **+47.2** | +68.7 | +73.4 | +127.2 | +143.4 |
+| `n20_td30d` | +51.2 | +105.7 | +108.5 | **+108.2** | +129.9 | +134.0 | +187.2 | +232.0 |
+
+![QUBO penalty weight against feasibility and quality](docs/figures/qubo_penalty_sweep.png)
+
+Two things follow, and they point the same way:
+
+1. **A bigger penalty buys no feasibility.** Raw feasibility is already 1.000 at
+   weight 1.0 on every instance, and stays 1.000 through 8.0. Below the
+   threshold it falls to 0.54–0.93 — and the *quality* there is the best on the
+   whole table. The bound is worst-case; "provably sufficient" and "works well"
+   are different properties.
+2. **A bigger penalty costs quality, monotonically.** At `n15_td30d` the shipped
+   default is nearly three times worse than weight 0.5. Raising the penalty
+   compresses the objective into the numerical shadow of the constraint terms,
+   and the sampler loses the ability to tell a good path from a mediocre one.
+
+The default should be swept per instance rather than trusted. This does not
+rescue `sa-qubo`: even its best weight at `n15_td30d` (+18.4%) is far worse than
+`sa-perm` at +2.77%.
+
+### Time to solution
+
+![Time to solution by solver and problem size](docs/figures/bench_runtime_vs_n.png)
+
+Read with three caveats, all of which are printed on the figure: `qaoa` is
+classical statevector simulation time; `ortools` and `cpsat` burn a configured
+time limit, which is a knob and not a measurement; and `sa-perm` is numpy
+against `sa-qubo`'s compiled C++ at an identical proposal count. These are
+laptop wall-clock numbers — treat them as orders of magnitude, not as a ranking
+of implementations.
+
+### One route, drawn on the plane that costs delta-v
+
+![The best-known route for n10_td30d on RAAN vs altitude](docs/figures/best_sequence_raan_altitude.png)
+
+### How reproducible is any of this?
+
+The canonical run was executed twice. **All 108 gap cells were identical**
+across the two runs — solution quality is deterministic given the seeds.
+Wall-clock was not: an earlier run overlapped with other work on the machine and
+inflated the N=15 block by about 6×, which is why the runtime figure carries the
+caveats it does and why the quality tables carry none.
 
 ---
 

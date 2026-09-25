@@ -326,6 +326,28 @@ def test_summary_keeps_the_reason_when_nothing_succeeded():
     assert "held-karp" in summary["reason"]
 
 
+def test_dirty_paths_survive_the_first_line(monkeypatch):
+    """git status --porcelain writes " M path"; the captured output is stripped.
+
+    Fixed-width slicing therefore ate a character off the first path only,
+    which is how a manifest came to record "esults/canonical/manifest.json".
+    A provenance field that quietly corrupts its own contents is worse than
+    not having it.
+    """
+    from dextrivia import bench
+
+    porcelain = " M results/canonical/manifest.json\n?? docs/figures/new.png"
+    monkeypatch.setattr(bench, "_git", lambda *a: porcelain.strip() if a[0] == "status" else "x")
+
+    state = bench.git_state()
+
+    assert state["dirty_paths"] == [
+        "docs/figures/new.png",
+        "results/canonical/manifest.json",
+    ]
+    assert state["dirty"] is True
+
+
 def test_default_seed_count_supports_a_spread():
     """Five seeds, because a mean of one run is not a mean."""
     assert len(DEFAULT_SEEDS) >= 5

@@ -221,7 +221,14 @@ def git_state() -> dict[str, Any]:
     cosmetic one.
     """
     porcelain = _git("status", "--porcelain") or ""
-    dirty = sorted(line[3:] for line in porcelain.splitlines() if line.strip())
+    # Split on the status field rather than slicing a fixed 3 characters:
+    # porcelain writes " M path" with a leading space, and _git strips its
+    # output, so the FIRST line is one character shorter than the rest. Fixed
+    # slicing silently turned "results/..." into "esults/..." -- a corrupted
+    # path in the one field whose whole job is to be auditable.
+    dirty = sorted(
+        line.strip().split(maxsplit=1)[-1] for line in porcelain.splitlines() if line.strip()
+    )
     return {
         "sha": _git("rev-parse", "HEAD"),
         "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),

@@ -91,15 +91,74 @@
 
 <main class="wrap">
 
-  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="v">0</div><div class="k">quantum or quantum-inspired solvers that beat the classical baselines</div></div>
+    <div class="stat"><div class="v">N=4</div><div class="k">largest instance QAOA can reach, against N=18 for an exact 1962 dynamic program</div></div>
+    <div class="stat"><div class="v">396</div><div class="k">solver runs in the committed benchmark, 88 of them recorded misses</div></div>
+    <div class="stat"><div class="v">108/108</div><div class="k">quality numbers identical across two independent runs</div></div>
+  </div>
 
   <h2>The result</h2>
 
-  <!-- HEADLINE-FIGURE -->
+  <figure>
+    <img src="docs/figures/bench_gap_vs_n.png" alt="Gap above the reference for each solver against problem size, on static and time-slotted costs. sa-qubo degrades steeply with N while classical solvers stay at zero.">
+    <figcaption>Gap above the reference, mean over 5 seeds, error bars 1 s.d. The reference is
+    the exact Held-Karp optimum wherever it could be computed, and the best result any solver
+    achieved at N=20, where it could not — labelled <span class="tag">best-known</span> there,
+    because a gap measured against the best thing found is not an optimality gap.</figcaption>
+  </figure>
 
-  <!-- HEADLINE-TABLE -->
+  <p class="lead">Three solvers tie the reference on all twelve instances:
+  <code>cpsat</code>, <code>local-search</code>, and — nearly everywhere — plain nearest-neighbour
+  <code>greedy</code>. The QUBO-based annealer is the worst solver in the benchmark at every size
+  above N=5.</p>
 
-  <!-- HEADLINE-PROSE -->
+  <table>
+    <thead><tr>
+      <th>instance</th><th class="num">N</th><th class="num">reference (km/s)</th>
+      <th class="num">greedy</th><th class="num">local-search</th><th class="num">cpsat</th>
+      <th class="num">ortools</th><th class="num">sa-perm</th><th class="num">sa-qubo</th><th class="num">qaoa</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>n4_static</td><td class="num">4</td><td class="num">0.5946</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td>n5_static</td><td class="num">5</td><td class="num">0.8296</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
+      <tr><td>n8_static</td><td class="num">8</td><td class="num">1.0824</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.61%</td><td class="num">refused</td></tr>
+      <tr><td>n10_static</td><td class="num">10</td><td class="num">1.3268</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+11.64%</td><td class="num">refused</td></tr>
+      <tr><td>n15_static</td><td class="num">15</td><td class="num">2.0151</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.22%</td><td class="num">+63.57%</td><td class="num">refused</td></tr>
+      <tr><td>n20_static <span class="tag">best-known</span></td><td class="num">20</td><td class="num">2.4485</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+12.08%</td><td class="num">+121.04%</td><td class="num">refused</td></tr>
+      <tr><td>n4_td30d</td><td class="num">4</td><td class="num">0.5205</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td>n5_td30d</td><td class="num">5</td><td class="num">0.8314</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
+      <tr><td>n8_td30d</td><td class="num">8</td><td class="num">1.1124</td><td class="num">+5.37%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+3.30%</td><td class="num">refused</td></tr>
+      <tr><td>n10_td30d</td><td class="num">10</td><td class="num">1.5165</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+14.65%</td><td class="num">refused</td></tr>
+      <tr><td>n15_td30d</td><td class="num">15</td><td class="num">2.1855</td><td class="num">+5.18%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+2.77%</td><td class="num">+47.20%</td><td class="num">refused</td></tr>
+      <tr><td>n20_td30d <span class="tag">best-known</span></td><td class="num">20</td><td class="num">3.6723</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+18.07%</td><td class="num">+108.17%</td><td class="num">refused</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.86rem"><code>refused</code> is a recorded miss with a stated reason, not a
+  crash and not a blank: <code>qaoa</code> above N=4, <code>ortools</code> on every time-dependent
+  instance, <code>exact</code> above N=18.</p>
+
+  <h3>The QUBO encoding, not the annealing, is what fails</h3>
+  <p><code>sa-perm</code> and <code>sa-qubo</code> minimise the same objective with the same
+  annealer budget — the same reads, the same sweeps, and N² proposed moves per sweep on both
+  sides. They differ only in what they search: a permutation, or N² binaries plus penalty terms.</p>
+  <table>
+    <thead><tr><th>instance</th><th class="num">sa-perm</th><th class="num">sa-qubo</th><th>both at</th></tr></thead>
+    <tbody>
+      <tr><td>n10_td30d</td><td class="num">+0.00%</td><td class="num">+14.65% ± 6.95</td><td>500 reads × 1000 sweeps</td></tr>
+      <tr><td>n15_td30d</td><td class="num">+2.77% ± 1.04</td><td class="num">+47.20% ± 10.27</td><td>112.5 M proposed moves</td></tr>
+      <tr><td>n20_td30d</td><td class="num">+18.07% ± 6.65</td><td class="num">+108.17% ± 9.67</td><td>200 M proposed moves</td></tr>
+    </tbody>
+  </table>
+  <p>Both proposal counts are recorded in each solver's metadata and the matched-budget formula is
+  asserted in the test suite, so the claim is auditable rather than assertable. The penalty terms
+  are not the culprit either: raw feasibility is 1.00 at every penalty weight at or above the
+  provable threshold. The constraints are satisfied; the objective is not being optimised.</p>
+
+  <div class="note"><strong>Greedy is hard to beat here, and only time dependence beats it.</strong>
+  Nearest-neighbour ties the exact optimum on all six static instances and four of six
+  time-dependent ones. Its only two failures — <code>n8_td30d</code> at +5.37% and
+  <code>n15_td30d</code> at +5.18% — are the entire headroom this benchmark contains.</div>
 
   <h2>The problem</h2>
   <p>Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost to
@@ -156,7 +215,33 @@
   Because the QUBO's position index and the instance's time slot are the same integer, a
   time-dependent instance produces a QUBO of exactly the same shape.</p>
 
-  <!-- QUBIT-WALL -->
+  <h3>The qubit wall</h3>
+  <p>The position encoding needs N² qubits, and a dense statevector is 2<sup>(N²)</sup> complex
+  amplitudes: N=5 is 512 MB before the optimiser evaluates anything, and N=6 is 1 TB. So
+  <code>qaoa</code> reaches N=4 in this benchmark and nothing larger, while <code>exact</code> — a
+  dynamic program from 1962 — reaches N=18 on the same laptop. <strong>The quantum solver's ceiling
+  sits an order of magnitude below the classical oracle's, on the same problem, in the same
+  encoding.</strong> That gap is the headline quantum result here.</p>
+
+  <p>At N=4 the +0.00% gap in the table above <strong>is not evidence of anything</strong>: there
+  are 24 possible sequences among 2<sup>16</sup> bitstrings, and best-of-4096-shots plus repair
+  recovers the optimum from uniform random bits. The only numbers at that size with any signal are
+  measured against chance:</p>
+  <table>
+    <thead><tr><th>instance</th><th class="num">raw feasibility</th><th class="num">uniform baseline</th><th class="num">P(optimal bitstring)</th><th class="num">uniform P(optimal)</th><th class="num">mean Δv, feasible samples</th><th class="num">mean Δv, random permutation</th></tr></thead>
+    <tbody>
+      <tr><td>n4_static</td><td class="num">0.0344 ± 0.0251</td><td class="num">0.000366</td><td class="num">0.0049 ± 0.0041</td><td class="num">0.0000305</td><td class="num">0.9586</td><td class="num">1.0261</td></tr>
+      <tr><td>n4_td30d</td><td class="num">0.0270 ± 0.0229</td><td class="num">0.000366</td><td class="num">0.0016 ± 0.0017</td><td class="num">0.0000153</td><td class="num">0.9103</td><td class="num">0.9735</td></tr>
+    </tbody>
+  </table>
+  <p>One real effect and one disappointment. QAOA <em>does</em> concentrate amplitude on the
+  feasible subspace — by roughly 94× and 74× — and on the optimal bitstring by ~160× and ~105×.
+  But within the feasible set it barely optimises: the mean delta-v of its feasible samples is only
+  6.6% and 6.5% better than a uniformly random permutation. It is finding permutations, not good
+  permutations.</p>
+  <p>Every QAOA runtime in this project is <strong>classical statevector simulation time</strong>
+  (145.6 s ± 21.3 per run at N=4). It is not a quantum runtime, and no quantum hardware was
+  involved.</p>
 
   <h2>Reproduce it</h2>
   <p>From a clean clone, three commands. No network access is required — the TLE snapshot,
@@ -165,7 +250,19 @@
 uv run dextrivia bench --out results/my-run
 uv run python scripts/plot_benchmark.py results/my-run</code></pre>
 
-  <!-- LIMITATIONS -->
+  <h2>Limitations</h2>
+  <ul>
+    <li><strong>The cost model still ignores phasing</strong> — the single largest omission. The
+    servicer is assumed to arrive at the right point in the target's orbit for free.</li>
+    <li><strong>Only two cells in the whole benchmark have headroom.</strong> Greedy ties the
+    optimum on ten of twelve instances, so most of the table ranks nothing. A stronger claim about
+    any solver needs harder instances, not more seeds.</li>
+    <li><strong>N=20 is uncertified.</strong> Held-Karp cannot run there, and CP-SAT's lower bound
+    is still 0.0 at its time limit, so "best-known" at N=20 is exactly that and nothing more.</li>
+    <li><strong>One QUBO formulation, one annealer, one QAOA depth range.</strong> These results
+    bound this encoding on this problem, not quantum optimisation in general.</li>
+    <li>No conjunction-risk weighting, propellant budget, time windows, or vehicle constraints.</li>
+  </ul>
 
 </main>
 
@@ -176,7 +273,10 @@ uv run python scripts/plot_benchmark.py results/my-run</code></pre>
     <a href="https://github.com/dwavesystems/dwave-samplers">dwave-samplers</a>,
     <a href="https://www.ibm.com/quantum/qiskit">Qiskit</a> and
     <a href="https://developers.google.com/optimization">OR-Tools</a>.</p>
-    <!-- PROVENANCE -->
+    <p>Every number on this page comes from one committed benchmark run,
+    <code>results/canonical/</code>, whose manifest records the git SHA, a sha256 per instance,
+    library versions, CPU and seeds. Solution quality was identical across two independent runs of
+    it; wall-clock was not, which is why the runtime numbers are labelled as orders of magnitude.</p>
   </div>
 </footer>
 
