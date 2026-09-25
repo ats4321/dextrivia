@@ -140,6 +140,13 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
   whose `rule` argument is `first`/`random` only. If a `plane-cluster` rule
   should become a first-class `Snapshot.select` option, that is a foundation
   change and needs its own entry.
+* 2026-09-24 — classical baselines (`localsearch`, `sa-perm`, `cpsat`) landed
+  with **no change to `core.py`**. Logged because it is the third workspace in
+  a row to need nothing: `leg_costs(step)` covered a MIP, a permutation
+  annealer and a local search without alteration. The one thing worth flagging
+  for future solver authors is that the position-in-sequence slot index makes
+  2-opt **O(N) rather than O(1)** under time-slotted costs — see the QUBO
+  section below.
 
 ## Build & test
 
@@ -232,11 +239,22 @@ written once for both shapes.
 | `src/dextrivia/solvers/quantum_annealing.py` | `sa-qubo`, dwave-samplers |
 | `src/dextrivia/solvers/quantum_qaoa.py` | `qaoa`, Qiskit statevector |
 | `src/dextrivia/solvers/ortools_routing.py` | `ortools` — **not a quantum file**, see below |
-| `tests/test_qubo_formulation.py`, `tests/test_qubo_solvers.py` | added, nothing else in `tests/` touched |
-| `docs/qubo.md` | new |
+| `src/dextrivia/solvers/permutation.py` | `localsearch` + `sa-perm` — **classical controls**, see below |
+| `src/dextrivia/solvers/cpsat.py` | `cpsat` — time-indexed MIP, also classical |
+| `scripts/benchmark_family.py`, `scripts/penalty_study.py` | the multi-seed studies behind every number quoted here |
+| `tests/test_qubo_formulation.py`, `tests/test_qubo_solvers.py`, `tests/test_classical_baselines.py` | added, nothing else in `tests/` touched |
+| `docs/qubo.md`, `docs/data/*.json` | new |
 
-`ortools_routing.py` is the one name that does not match the
-`solvers/quantum*` pattern this workspace was assigned. Calling a Google
+`permutation.py`, `cpsat.py` and `ortools_routing.py` are classical and do not
+match the `solvers/quantum*` pattern this workspace was assigned. They are here
+because a quantum benchmark without controls is not a benchmark — the whole
+point of `sa-perm` is to sit next to `sa-qubo` and answer "is it the annealing
+or the encoding?". All three are new files that collide with nobody; the
+ownership table above names `greedy.py` and `exact.py` individually, not the
+directory.
+
+On the naming specifically: `ortools_routing.py` is the one name that does not
+match the pattern and could have. Calling a Google
 constraint-programming solver `quantum_ortools.py` to satisfy a glob would put a
 lie in the filename, and the benchmark's whole point is that the labels are
 honest. It is a new file, so it collides with nobody — the ownership table above
@@ -264,8 +282,20 @@ record.
   `N=4` random-noise control in `docs/qubo.md` §6 for how badly this misleads at
   small `N`.
 * **The penalty default is a measurement, not a preference.**
-  `DEFAULT_PENALTY_SAFETY = 1.1` comes from the sweep table in `docs/qubo.md` §3.
-  Raising it does not buy feasibility and does cost solution quality.
+  `DEFAULT_PENALTY_SAFETY = 1.1` survived a 6-instance x 5-seed study
+  (`scripts/penalty_study.py`) that found **no consistent winner**. Do not
+  change it on the strength of one instance — an earlier spot check made 1.1
+  look like the worst option by reading `n15_td30d` alone.
+* **2-opt is O(N), not O(1), under time-slotted costs.** Reversing a segment
+  does not just reverse those legs; it changes which leg *index* every later
+  pair occupies, so the whole suffix re-prices. Or-opt shifts positions and has
+  the same problem. Any move evaluation here re-costs the full path. The
+  textbook O(1) delta is silently **wrong** on exactly the instances that
+  matter.
+* **Never rank solvers by argmin without a tie rule.** The first penalty
+  verdict claimed "factor 1.01 wins 4/6" purely because easy instances score
+  +0.00% across the board and `min()` picks whatever sorts first. Ties must
+  vote for nobody.
 
 ### Known limitations added by this workspace
 
@@ -282,19 +312,38 @@ record.
    instances get `feasible=False` rather than a quietly wrong answer. When the
    physics workspace lands `C[t,i,j]`, the strong classical baseline above
    Held-Karp range disappears and something else will have to fill that role.
-9. **Only the time-dependent instances rank anything.** Superseded the original
-   "benchmark is degenerate" note when the physics workspace landed: on the
-   plane-cluster family, greedy still ties exact on *every* static instance
-   (N=4..15), so those tables still rank nothing. The `td30d` instances at N=8
-   and N=15 are the first with real headroom (greedy +5.37% and +5.18%). Quote
-   a static-instance result only as a sanity check, never as a comparison.
-10. **The one win and the one collapse are both at `sa-qubo`.** On `n8_td30d`
-   it reaches the exact optimum where greedy loses 5.37% -- the first result in
-   this project where the QUBO route beats the classical heuristic on a
-   non-degenerate instance. On `n15_td30d` (225 variables) it lands +41.6%,
-   far worse than greedy. Two data points are not a scaling law; do not report
-   the first without the second.
-11. **The strong classical baseline is missing exactly where it is needed.**
-   `ortools` refuses both `td30d` instances (limitation 8), which are the only
-   ones with headroom. So the N=15 comparison currently has no good classical
-   bar above Held-Karp range at all.
+9. **The QUBO encoding is a net loss, and the "win" was retracted.** The
+   control is `sa-perm`: the same simulated annealing applied to sequences
+   instead of a penalty-encoded bit vector. Across all 12 family instances at
+   5 seeds, **`sa-qubo` does not beat `sa-perm` on a single one.** It ties on
+   the trivial ones and loses monotonically with N — on `td30d`: +1.07% at
+   N=8, +5.18% at N=10, +22.33% at N=15, +105.77% at N=20, against +0.00%
+   everywhere for `sa-perm`. The comparison is generous to `sa-qubo` twice
+   over: `sa-perm` is interpreted Python against compiled C++, and `sa-qubo`'s
+   reads x sweeps budget overran the matched 2 s wall clock at N=15 and N=20
+   (4.5 s and 9.2 s). More time, still worse.
+10. **An earlier single-seed claim was wrong and is withdrawn.** `sa-qubo` was
+   reported at +0.00% on `n8_td30d` as "the first genuine win in this
+   project". Over 5 seeds it averages **+1.07%**; the zero was one lucky draw.
+   Never quote a stochastic solver from one run — the repo says so and it
+   happened anyway.
+11. **The family has no headroom left for anybody.** `localsearch` (greedy
+   start, 2-opt + or-opt) matches the reference on **all 12 instances**,
+   deterministically, in **1–6 ms**; `cpsat` proves optimality on 11 of 12.
+   "Time dependence breaks greedy" is still true (+5.37% at N=8, +5.18% at
+   N=15) but it measured greedy's weakness, not the problem's difficulty. Any
+   further solver comparison on `planecluster-v1` can only measure how far
+   something falls short of a 6 ms local search. **Harder instances are the
+   prerequisite for the next comparison** — more objects, or constraints
+   (propellant, time windows, conjunction risk) that 2-opt cannot trivially
+   repair.
+12. **`ortools` routing still refuses every time-dependent instance**, but this
+   no longer leaves a hole: `cpsat` covers them, proves optimality to N=15 in
+   2.2 s, and reports a lower bound when it cannot (N=20 left a gap after
+   109 s, so that reference is the only unproven one in the family).
+13. **The penalty default survived a real study and stays at 1.1.** Six
+   instances, five seeds, eight factors: no consistent winner — only N=15 and
+   N=20 discriminate and they pick different factors. Separately, the
+   *provably sufficient* bound costs a factor of two to three in quality
+   against the sub-threshold factor 0.5, which still samples 94–97% feasible.
+   The guarantee is real and it is not free.
