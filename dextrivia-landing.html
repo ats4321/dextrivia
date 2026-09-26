@@ -1,843 +1,294 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dextrivia - Challenge Your Mind</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --primary-color: #6366f1;
-            --secondary-color: #8b5cf6;
-            --accent-color: #ec4899;
-            --dark-bg: #0f172a;
-            --light-bg: #1e293b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --gradient: linear-gradient(135deg, var(--primary-color), var(--secondary-color), var(--accent-color));
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            line-height: 1.6;
-            color: var(--text-primary);
-            background: var(--dark-bg);
-            overflow-x: hidden;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        /* Navigation */
-        nav {
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 0;
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 800;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .logo i {
-            -webkit-text-fill-color: var(--primary-color);
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: var(--text-secondary);
-            font-weight: 500;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .nav-links a:hover {
-            color: var(--text-primary);
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--gradient);
-            transition: width 0.3s ease;
-        }
-
-        .nav-links a:hover::after {
-            width: 100%;
-        }
-
-        /* Hero Section */
-        .hero {
-            padding: 140px 0 80px;
-            text-align: center;
-            position: relative;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 80%, rgba(236, 72, 153, 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 40% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
-            pointer-events: none;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 1;
-        }
-
-        .hero h1 {
-            font-size: 4rem;
-            font-weight: 800;
-            margin-bottom: 1.5rem;
-            line-height: 1.1;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .hero .subtitle {
-            font-size: 1.4rem;
-            margin-bottom: 2rem;
-            color: var(--text-secondary);
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn-primary, .btn-secondary {
-            padding: 15px 35px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.1rem;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            border: none;
-            cursor: pointer;
-        }
-
-        .btn-primary {
-            background: var(--gradient);
-            color: white;
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 40px rgba(99, 102, 241, 0.4);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: var(--text-primary);
-            border: 2px solid var(--primary-color);
-        }
-
-        .btn-secondary:hover {
-            background: var(--primary-color);
-            transform: translateY(-2px);
-        }
-
-        /* Features Section */
-        .features {
-            padding: 100px 0;
-            background: var(--light-bg);
-        }
-
-        .features h2 {
-            text-align: center;
-            font-size: 3rem;
-            margin-bottom: 3rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-        }
-
-        .feature-card {
-            background: rgba(30, 41, 59, 0.5);
-            backdrop-filter: blur(10px);
-            padding: 2.5rem;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-            text-align: center;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-10px);
-            border-color: var(--primary-color);
-            box-shadow: 0 20px 40px rgba(99, 102, 241, 0.2);
-        }
-
-        .feature-icon {
-            font-size: 3.5rem;
-            margin-bottom: 1.5rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .feature-card p {
-            color: var(--text-secondary);
-            line-height: 1.6;
-        }
-
-        /* How It Works */
-        .how-it-works {
-            padding: 100px 0;
-        }
-
-        .how-it-works h2 {
-            text-align: center;
-            font-size: 3rem;
-            margin-bottom: 3rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .steps {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            max-width: 900px;
-            margin: 0 auto;
-        }
-
-        .step {
-            text-align: center;
-            position: relative;
-        }
-
-        .step-number {
-            width: 60px;
-            height: 60px;
-            background: var(--gradient);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin: 0 auto 1rem;
-        }
-
-        .step h3 {
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .step p {
-            color: var(--text-secondary);
-        }
-
-        /* CTA Section */
-        .cta {
-            padding: 100px 0;
-            background: var(--light-bg);
-            text-align: center;
-        }
-
-        .cta h2 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .cta p {
-            font-size: 1.2rem;
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        /* Newsletter Section */
-        .newsletter {
-            padding: 80px 0;
-            background: var(--dark-bg);
-        }
-
-        .newsletter-content {
-            max-width: 600px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .newsletter h2 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .newsletter p {
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-        }
-
-        .newsletter-form {
-            display: flex;
-            gap: 1rem;
-            max-width: 500px;
-            margin: 0 auto;
-        }
-
-        .newsletter-form input {
-            flex: 1;
-            padding: 15px 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 50px;
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--text-primary);
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .newsletter-form input::placeholder {
-            color: var(--text-secondary);
-        }
-
-        .newsletter-form input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .newsletter-form button {
-            padding: 15px 30px;
-            background: var(--gradient);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .newsletter-form button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
-        }
-
-        /* Footer */
-        footer {
-            background: var(--light-bg);
-            padding: 3rem 0 1rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .footer-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .footer-section h3 {
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-            background: var(--gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .footer-section p, .footer-section a {
-            color: var(--text-secondary);
-            text-decoration: none;
-            line-height: 1.8;
-            transition: color 0.3s ease;
-        }
-
-        .footer-section a:hover {
-            color: var(--text-primary);
-        }
-
-        .social-links {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .social-links a {
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .social-links a:hover {
-            background: var(--primary-color);
-            transform: translateY(-2px);
-        }
-
-        .footer-bottom {
-            text-align: center;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            color: var(--text-secondary);
-        }
-
-        /* Success/Error Messages */
-        .message {
-            display: none;
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-            text-align: center;
-            animation: slideIn 0.3s ease;
-        }
-
-        .success-message {
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid rgba(34, 197, 94, 0.5);
-            color: #22c55e;
-        }
-
-        .error-message {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.5);
-            color: #ef4444;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-
-            .hero h1 {
-                font-size: 2.5rem;
-            }
-
-            .hero .subtitle {
-                font-size: 1.1rem;
-            }
-
-            .hero-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .features-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .steps {
-                grid-template-columns: 1fr;
-            }
-
-            .newsletter-form {
-                flex-direction: column;
-            }
-
-            .footer-content {
-                grid-template-columns: 1fr;
-                text-align: center;
-            }
-
-            .social-links {
-                justify-content: center;
-            }
-        }
-
-        /* Animations */
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dextrivia — benchmarking classical vs quantum solvers on orbital debris removal</title>
+<meta name="description" content="An honest benchmark of classical, quantum-inspired and quantum solvers on Iridium-33 debris removal sequencing. Every number traceable to a committed results run.">
+<style>
+  /* Single file, no CDN, no web fonts: the page has to render from a clone
+     with no network, the same way the benchmark reproduces with no network. */
+  :root {
+    --surface:      #fcfcfb;
+    --surface-2:    #f3f1ea;
+    --ink:          #0b0b0b;
+    --ink-soft:     #52514e;
+    --ink-muted:    #8a8a85;
+    --rule:         #d8d8d2;
+    --blue:         #2a78d6;
+    --orange:       #eb6834;
+    --aqua:         #1baf7a;
+    --red:          #e34948;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--surface);
+    color: var(--ink);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 72px 0 40px; border-bottom: 1px solid var(--rule); }
+  h1 { font-size: 2.4rem; line-height: 1.15; letter-spacing: -0.02em; font-weight: 700; }
+  h1 .sub { display: block; font-size: 1.05rem; font-weight: 400; color: var(--ink-soft);
+            margin-top: 14px; letter-spacing: 0; line-height: 1.5; }
+  h2 { font-size: 1.45rem; margin: 56px 0 16px; letter-spacing: -0.01em; }
+  h3 { font-size: 1.05rem; margin: 28px 0 10px; }
+  p { margin: 14px 0; color: var(--ink-soft); }
+  p.lead { color: var(--ink); font-size: 1.08rem; }
+  a { color: var(--blue); }
+  code, .mono { font-family: var(--mono); font-size: 0.9em; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--surface-2); border: 1px solid var(--rule); border-radius: 6px;
+        padding: 14px 16px; overflow-x: auto; margin: 16px 0; }
+  pre code { background: none; padding: 0; font-size: 0.86rem; line-height: 1.6; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  td { color: var(--ink-soft); }
+  td.num, th.num { text-align: right; font-family: var(--mono); white-space: nowrap; }
+  tr.oracle td { color: var(--ink); font-weight: 600; }
+  figure { margin: 24px 0; }
+  figure img { width: 100%; border: 1px solid var(--rule); border-radius: 6px; display: block; }
+  figcaption { font-size: 0.84rem; color: var(--ink-muted); margin-top: 10px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+           gap: 16px; margin: 28px 0; }
+  .stat { border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px;
+          background: var(--surface-2); }
+  .stat .v { font-family: var(--mono); font-size: 1.5rem; color: var(--ink); line-height: 1.2; }
+  .stat .k { font-size: 0.8rem; color: var(--ink-soft); margin-top: 6px; }
+  .note { border-left: 3px solid var(--orange); padding: 2px 0 2px 16px; margin: 22px 0;
+          color: var(--ink-soft); }
+  .note strong { color: var(--ink); }
+  ul { margin: 12px 0 12px 22px; color: var(--ink-soft); }
+  li { margin: 7px 0; }
+  footer { margin-top: 72px; padding: 28px 0 56px; border-top: 1px solid var(--rule);
+           font-size: 0.86rem; color: var(--ink-muted); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 0.75rem;
+         padding: 2px 7px; border-radius: 3px; border: 1px solid var(--rule);
+         color: var(--ink-soft); background: var(--surface); }
+  @media (max-width: 640px) {
+    h1 { font-size: 1.8rem; }
+    header { padding: 44px 0 28px; }
+    table { font-size: 0.82rem; }
+  }
+</style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav>
-        <div class="container">
-            <div class="nav-container">
-                <div class="logo">
-                    <i class="fas fa-brain"></i>
-                    Dextrivia
-                </div>
-                <ul class="nav-links">
-                    <li><a href="#features">Features</a></li>
-                    <li><a href="#how-it-works">How It Works</a></li>
-                    <li><a href="#play">Play Now</a></li>
-                    <li><a href="#contact">Contact</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <h1>Challenge Your Mind</h1>
-                <p class="subtitle">Dextrivia combines brain-training challenges with exciting trivia games. Test your knowledge, sharpen your skills, and compete with players worldwide.</p>
-                <div class="hero-buttons">
-                    <a href="#play" class="btn-primary">
-                        <i class="fas fa-play"></i>
-                        Play Now
-                    </a>
-                    <a href="#features" class="btn-secondary">
-                        <i class="fas fa-info-circle"></i>
-                        Learn More
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
+<header>
+  <div class="wrap">
+    <h1>Dextrivia
+      <span class="sub">An honest benchmark of classical, quantum-inspired and quantum
+      solvers on a real orbital-debris sequencing problem. Every number below comes from
+      one committed benchmark run, and the run reproduces from a clean clone.</span>
+    </h1>
+  </div>
+</header>
 
-    <!-- Features Section -->
-    <section class="features" id="features">
-        <div class="container">
-            <h2>Why Choose Dextrivia?</h2>
-            <div class="features-grid">
-                <div class="feature-card fade-in">
-                    <div class="feature-icon">
-                        <i class="fas fa-trophy"></i>
-                    </div>
-                    <h3>Competitive Challenges</h3>
-                    <p>Compete against players from around the world in real-time trivia battles and climb the global leaderboard.</p>
-                </div>
-                <div class="feature-card fade-in">
-                    <div class="feature-icon">
-                        <i class="fas fa-brain"></i>
-                    </div>
-                    <h3>Brain Training</h3>
-                    <p>Improve your cognitive skills with specially designed challenges that enhance memory, logic, and quick thinking.</p>
-                </div>
-                <div class="feature-card fade-in">
-                    <div class="feature-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h3>Track Progress</h3>
-                    <p>Monitor your improvement with detailed analytics and personalized insights into your performance.</p>
-                </div>
-            </div>
-        </div>
-    </section>
+<main class="wrap">
 
-    <!-- How It Works -->
-    <section class="how-it-works" id="how-it-works">
-        <div class="container">
-            <h2>How It Works</h2>
-            <div class="steps">
-                <div class="step fade-in">
-                    <div class="step-number">1</div>
-                    <h3>Sign Up</h3>
-                    <p>Create your free account and customize your profile</p>
-                </div>
-                <div class="step fade-in">
-                    <div class="step-number">2</div>
-                    <h3>Choose Challenge</h3>
-                    <p>Select from various categories and difficulty levels</p>
-                </div>
-                <div class="step fade-in">
-                    <div class="step-number">3</div>
-                    <h3>Play & Learn</h3>
-                    <p>Answer questions, solve puzzles, and earn points</p>
-                </div>
-                <div class="step fade-in">
-                    <div class="step-number">4</div>
-                    <h3>Compete</h3>
-                    <p>Battle opponents and rise through the ranks</p>
-                </div>
-            </div>
-        </div>
-    </section>
+  <div class="stats">
+    <div class="stat"><div class="v">0</div><div class="k">quantum or quantum-inspired solvers that beat the classical baselines</div></div>
+    <div class="stat"><div class="v">N=4</div><div class="k">largest instance QAOA can reach, against N=18 for an exact 1962 dynamic program</div></div>
+    <div class="stat"><div class="v">396</div><div class="k">solver runs in the committed benchmark, 88 of them recorded misses</div></div>
+    <div class="stat"><div class="v">3</div><div class="k">classical solvers tying the reference on every instance; the QUBO annealer ties none above N=5</div></div>
+  </div>
 
-    <!-- CTA Section -->
-    <section class="cta" id="play">
-        <div class="container">
-            <h2>Ready to Test Your Skills?</h2>
-            <p>Join thousands of players already challenging their minds with Dextrivia</p>
-            <div class="hero-buttons">
-                <button class="btn-primary" onclick="showSignUp()">
-                    <i class="fas fa-rocket"></i>
-                    Start Playing Free
-                </button>
-                <button class="btn-secondary" onclick="showDemo()">
-                    <i class="fas fa-play-circle"></i>
-                    Watch Demo
-                </button>
-            </div>
-        </div>
-    </section>
+  <h2>The result</h2>
 
-    <!-- Newsletter Section -->
-    <section class="newsletter">
-        <div class="container">
-            <div class="newsletter-content">
-                <h2>Stay Updated</h2>
-                <p>Get the latest features, challenges, and exclusive content delivered to your inbox</p>
-                <div class="message success-message" id="newsletterSuccess">
-                    🎉 Thanks for subscribing! Check your email for confirmation.
-                </div>
-                <div class="message error-message" id="newsletterError">
-                    ❌ Something went wrong. Please try again.
-                </div>
-                <form class="newsletter-form" id="newsletterForm">
-                    <input type="email" placeholder="Enter your email" required id="newsletterEmail">
-                    <button type="submit">Subscribe</button>
-                </form>
-            </div>
-        </div>
-    </section>
+  <figure>
+    <img src="docs/figures/bench_gap_vs_n.png" alt="Gap above the reference for each solver against problem size, on static and time-slotted costs. sa-qubo degrades steeply with N while classical solvers stay at zero.">
+    <figcaption>Gap above the reference, mean over 5 seeds, error bars 1 s.d. The reference is
+    the exact Held-Karp optimum wherever it could be computed, and the best result any solver
+    achieved at N=20, where it could not — labelled <span class="tag">best-known</span> there,
+    because a gap measured against the best thing found is not an optimality gap.</figcaption>
+  </figure>
 
-    <!-- Footer -->
-    <footer id="contact">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>Dextrivia</h3>
-                    <p>Challenge your mind with the ultimate trivia and brain-training platform.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-facebook"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin"></i></a>
-                    </div>
-                </div>
-                <div class="footer-section">
-                    <h3>Game</h3>
-                    <p><a href="#features">Features</a></p>
-                    <p><a href="#how-it-works">How to Play</a></p>
-                    <p><a href="#play">Start Playing</a></p>
-                    <p><a href="#">Leaderboard</a></p>
-                </div>
-                <div class="footer-section">
-                    <h3>Company</h3>
-                    <p><a href="#">About Us</a></p>
-                    <p><a href="#">Careers</a></p>
-                    <p><a href="#">Press</a></p>
-                    <p><a href="#">Blog</a></p>
-                </div>
-                <div class="footer-section">
-                    <h3>Support</h3>
-                    <p><a href="#">Help Center</a></p>
-                    <p><a href="#">Contact Us</a></p>
-                    <p><a href="#">Privacy Policy</a></p>
-                    <p><a href="#">Terms of Service</a></p>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2024 Dextrivia. All rights reserved. Made with ❤️ for trivia lovers.</p>
-            </div>
-        </div>
-    </footer>
+  <p class="lead">Three classical solvers tie the reference on all twelve instances:
+  <code>localsearch</code>, <code>cpsat</code> and <code>sa-perm</code>. The QUBO-based annealer
+  is the only solver in the benchmark that fails, and QAOA cannot leave N=4.</p>
 
-    <script>
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
+  <table>
+    <thead><tr>
+      <th>instance</th><th class="num">N</th><th class="num">reference (km/s)</th>
+      <th class="num">greedy</th><th class="num">localsearch</th><th class="num">cpsat</th>
+      <th class="num">ortools</th><th class="num">sa-perm</th><th class="num">sa-qubo</th><th class="num">qaoa</th>
+    </tr></thead>
+    <tbody>
+      <tr><td>n4_static</td><td class="num">4</td><td class="num">0.5946</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td>n5_static</td><td class="num">5</td><td class="num">0.8296</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
+      <tr><td>n8_static</td><td class="num">8</td><td class="num">1.0824</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.61%</td><td class="num">refused</td></tr>
+      <tr><td>n10_static</td><td class="num">10</td><td class="num">1.3268</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+11.64%</td><td class="num">refused</td></tr>
+      <tr><td>n15_static</td><td class="num">15</td><td class="num">2.0151</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+63.57%</td><td class="num">refused</td></tr>
+      <tr><td>n20_static <span class="tag">best-known</span></td><td class="num">20</td><td class="num">2.4485</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+121.04%</td><td class="num">refused</td></tr>
+      <tr><td>n4_td30d</td><td class="num">4</td><td class="num">0.5205</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td>n5_td30d</td><td class="num">5</td><td class="num">0.8314</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
+      <tr><td>n8_td30d</td><td class="num">8</td><td class="num">1.1124</td><td class="num">+5.37%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+3.30%</td><td class="num">refused</td></tr>
+      <tr><td>n10_td30d</td><td class="num">10</td><td class="num">1.5165</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+14.65%</td><td class="num">refused</td></tr>
+      <tr><td>n15_td30d</td><td class="num">15</td><td class="num">2.1855</td><td class="num">+5.18%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+47.20%</td><td class="num">refused</td></tr>
+      <tr><td>n20_td30d <span class="tag">best-known</span></td><td class="num">20</td><td class="num">3.6723</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+108.17%</td><td class="num">refused</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.86rem"><code>refused</code> is a recorded miss with a stated reason, not a
+  crash and not a blank: <code>qaoa</code> above N=4, <code>ortools</code> on every time-dependent
+  instance, <code>exact</code> above N=18.</p>
 
-        // Newsletter form handling
-        document.getElementById('newsletterForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const email = document.getElementById('newsletterEmail').value;
-            const successMsg = document.getElementById('newsletterSuccess');
-            const errorMsg = document.getElementById('newsletterError');
-            
-            // Hide messages
-            successMsg.style.display = 'none';
-            errorMsg.style.display = 'none';
-            
-            // Validate email
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            if (!emailRegex.test(email)) {
-                errorMsg.textContent = 'Please enter a valid email address.';
-                errorMsg.style.display = 'block';
-                return;
-            }
-            
-            try {
-                // Simulate API call
-                const response = await subscribeNewsletter(email);
-                
-                if (response.success) {
-                    successMsg.style.display = 'block';
-                    this.reset();
-                    
-                    // Scroll to success message
-                    successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                } else {
-                    errorMsg.textContent = response.message || 'Subscription failed. Please try again.';
-                    errorMsg.style.display = 'block';
-                }
-            } catch (error) {
-                errorMsg.textContent = 'Network error. Please try again later.';
-                errorMsg.style.display = 'block';
-            }
-        });
+  <h3>The QUBO encoding, not the annealing, is what fails</h3>
+  <p><code>sa-perm</code> and <code>sa-qubo</code> minimise the same objective with the same
+  annealer budget — the same reads, the same sweeps, and N² proposed moves per sweep on both
+  sides. They differ only in what they search: a permutation, or N² binaries plus penalty terms.</p>
+  <table>
+    <thead><tr><th>instance</th><th class="num">sa-perm</th><th class="num">sa-qubo</th></tr></thead>
+    <tbody>
+      <tr><td>n8_td30d</td><td class="num">+0.00%</td><td class="num">+3.30% ± 2.70</td></tr>
+      <tr><td>n10_td30d</td><td class="num">+0.00%</td><td class="num">+14.65% ± 6.95</td></tr>
+      <tr><td>n15_td30d</td><td class="num">+0.00%</td><td class="num">+47.20% ± 10.27</td></tr>
+      <tr><td>n20_td30d</td><td class="num">+0.00%</td><td class="num">+108.17% ± 9.67</td></tr>
+    </tbody>
+  </table>
+  <p><code>sa-perm</code> gets a 1-second wall-clock budget; <code>sa-qubo</code>'s 500 reads ×
+  1000 sweeps costs it 0.28–2.30 s. The comparison is generous to <code>sa-qubo</code> twice over
+  — more wall clock at the larger sizes, and compiled C++ against interpreted Python. Both budget
+  currencies are recorded so it can be audited. The penalty terms are not the culprit either: raw
+  feasibility is 1.00 at every weight at or above the provable threshold. The constraints are
+  satisfied; the objective is not being optimised.</p>
+  <p>One caveat stated plainly: <code>sa-perm</code> starts from the greedy solution, so part of
+  its +0.00% is that head start. <code>localsearch</code> — the same neighbourhood at zero
+  temperature — already ties everywhere in under 3 ms, which suggests the annealing adds little
+  here. What the comparison does establish is narrower and still worth having: at a budget that
+  favours it, the QUBO encoding loses badly to searching permutations directly.</p>
 
-        // Simulate newsletter subscription
-        async function subscribeNewsletter(email) {
-            // Simulate network delay
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            console.log('Newsletter subscription:', email);
-            
-            // Simulate success
-            return { success: true, message: 'Successfully subscribed!' };
-        }
+  <div class="note"><strong>The cheapest solver in the benchmark also ties everywhere.</strong>
+  <code>localsearch</code> — greedy, then 2-opt and or-opt to a local optimum — matches the
+  reference on all twelve instances in at most 3 ms, against 60 s for <code>cpsat</code>. The two
+  cells where plain <code>greedy</code> loses (<code>n8_td30d</code> +5.37%,
+  <code>n15_td30d</code> +5.18%) are repaired by a few milliseconds of local search. So this
+  instance family has essentially no headroom left — a finding about the benchmark, not a
+  triumph.</div>
 
-        // Show sign up modal (placeholder)
-        function showSignUp() {
-            alert('Sign up feature coming soon! For now, enjoy exploring our landing page.');
-        }
+  <h2>The problem</h2>
+  <p>Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost to
+  transfer between any two, find the visiting order that costs the least. The 2009
+  Iridium-33 / Cosmos-2251 collision left more than 2,000 trackable fragments in low
+  Earth orbit; active debris removal is limited by propellant, so the order in which
+  targets are visited decides whether a mission is affordable at all.</p>
 
-        // Show demo (placeholder)
-        function showDemo() {
-            alert('Demo video coming soon! Check back later for an interactive walkthrough.');
-        }
+  <p>It is an <strong>open path, not a TSP tour</strong>. The servicer starts at the first
+  object and stops at the last — no return leg, no depot, exactly N-1 legs. The textbook
+  TSP QUBO would charge the mission for a leg it never flies.</p>
 
-        // Intersection Observer for animations
-        const observerOptions = {
-            threshold: 0.1,
-            rootMargin: '0px 0px -50px 0px'
-        };
+  <h2>The physics</h2>
+  <p>Orbits come from TLEs propagated with SGP4 to the snapshot's median TLE epoch — never
+  a hardcoded date. Transfer cost is a two-burn impulsive manoeuvre between circular orbits
+  at each object's mean semi-major axis, with the plane change folded into the burns and
+  the split between them solved numerically.</p>
 
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('visible');
-                }
-            });
-        }, observerOptions);
+  <figure>
+    <img src="docs/figures/raan_altitude.png" alt="The Iridium-33 cloud plotted as RAAN against mean altitude, showing objects smeared across the full circle of node while spanning only 0.51 degrees of inclination.">
+    <figcaption>Inclination alone says the cloud is one orbit. RAAN says it is 107 of them.
+    Moving sideways on this plot costs about 0.131 km/s per degree, against 0.053 km/s per
+    100 km vertically.</figcaption>
+  </figure>
 
-        // Observe elements for animation
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.fade-in').forEach(element => {
-                observer.observe(element);
-            });
-        });
+  <p>Because a median leg costs 5.80 km/s — more than a launch to GEO — full-cloud tours
+  are physically absurd. Instances are built by a <code>plane-cluster</code> rule fixed
+  before any solver runs, which never looks at delta-v or at which solver wins.</p>
 
-        // Add some interactive effects
-        document.addEventListener('mousemove', (e) => {
-            const cards = document.querySelectorAll('.feature-card');
-            const x = e.clientX / window.innerWidth;
-            const y = e.clientY / window.innerHeight;
-            
-            cards.forEach((card, index) => {
-                const offsetX = (x - 0.5) * 10 * (index % 2 === 0 ? 1 : -1);
-                const offsetY = (y - 0.5) * 10 * (index % 2 === 0 ? -1 : 1);
-                card.style.transform = `translateY(${offsetY}px) translateX(${offsetX}px)`;
-            });
-        });
-    </script>
+  <h2>Why the first version was wrong</h2>
+  <p>This project began as an altitude-only tool. Three things were wrong with it, all
+  three visible in the git history rather than reconstructed.</p>
+  <ul>
+    <li><strong>The propagation ran ~15 months backward.</strong> A hardcoded epoch of
+    2025-01-01 against a TLE set whose median epoch is 2026-04-02 — 455 days in the wrong
+    direction. It moves mean altitudes by up to 108 km, and SGP4 refuses outright on one
+    of the 107 objects.</li>
+    <li><strong>Altitude was the instantaneous radius, with the wrong Earth.</strong>
+    <code>|r| − 6371 km</code> oscillates once per orbit (285 km peak-to-peak for the most
+    eccentric object) and mixes in a spherical radius where SGP4 uses WGS72. Per-object
+    disagreement against the mean semi-major axis reaches 144 km.</li>
+    <li><strong>The benchmark was degenerate</strong> — the one that actually mattered.
+    Every cost derived from one scalar per object, so the objects lie on a line, the
+    optimum is a sort, and greedy tied the exact optimum at 0.1262 km/s. A benchmark whose
+    baseline is provably optimal measures nothing.</li>
+  </ul>
+  <p>The degeneracy is locked down rather than deleted: a test still asserts that sorting
+  by altitude is optimal under the altitude-only model, so it cannot quietly return.</p>
+
+  <h2>The QUBO</h2>
+  <p>One binary per (object, position) pair — <code>x[i,p] = 1</code> when object
+  <em>i</em> is visited <em>p</em>-th — so N² variables, with penalty terms forcing a
+  permutation matrix. The objective sums N-1 leg terms, not N: open path, no wrap-around.
+  Because the QUBO's position index and the instance's time slot are the same integer, a
+  time-dependent instance produces a QUBO of exactly the same shape.</p>
+
+  <h3>The qubit wall</h3>
+  <p>The position encoding needs N² qubits, and a dense statevector is 2<sup>(N²)</sup> complex
+  amplitudes: N=5 is 512 MB before the optimiser evaluates anything, and N=6 is 1 TB. So
+  <code>qaoa</code> reaches N=4 in this benchmark and nothing larger, while <code>exact</code> — a
+  dynamic program from 1962 — reaches N=18 on the same laptop. <strong>The quantum solver's ceiling
+  sits an order of magnitude below the classical oracle's, on the same problem, in the same
+  encoding.</strong> That gap is the headline quantum result here.</p>
+
+  <p>At N=4 the +0.00% gap in the table above <strong>is not evidence of anything</strong>: there
+  are 24 possible sequences among 2<sup>16</sup> bitstrings, and best-of-4096-shots plus repair
+  recovers the optimum from uniform random bits. The only numbers at that size with any signal are
+  measured against chance:</p>
+  <table>
+    <thead><tr><th>instance</th><th class="num">raw feasibility</th><th class="num">uniform baseline</th><th class="num">P(optimal bitstring)</th><th class="num">uniform P(optimal)</th><th class="num">mean Δv, feasible samples</th><th class="num">mean Δv, random permutation</th></tr></thead>
+    <tbody>
+      <tr><td>n4_static</td><td class="num">0.0344 ± 0.0251</td><td class="num">0.000366</td><td class="num">0.0049 ± 0.0041</td><td class="num">0.0000305</td><td class="num">0.9586</td><td class="num">1.0261</td></tr>
+      <tr><td>n4_td30d</td><td class="num">0.0270 ± 0.0229</td><td class="num">0.000366</td><td class="num">0.0016 ± 0.0017</td><td class="num">0.0000153</td><td class="num">0.9103</td><td class="num">0.9735</td></tr>
+    </tbody>
+  </table>
+  <p>One real effect and one disappointment. QAOA <em>does</em> concentrate amplitude on the
+  feasible subspace — by roughly 94× and 74× — and on the optimal bitstring by 162× and 102×.
+  But within the feasible set it barely optimises: the mean delta-v of its feasible samples is only
+  6.6% and 6.5% better than a uniformly random permutation. It is finding permutations, not good
+  permutations.</p>
+  <p>Every QAOA runtime in this project is <strong>classical statevector simulation time</strong>
+  (63.3 s ± 7.3 per run at N=4). It is not a quantum runtime, and no quantum hardware was
+  involved.</p>
+
+  <h2>Reproduce it</h2>
+  <p>From a clean clone, three commands. No network access is required — the TLE snapshot,
+  the instance family and the canonical results run are all committed.</p>
+  <pre><code>uv sync --all-extras
+uv run dextrivia bench --out results/my-run
+uv run python scripts/plot_benchmark.py results/my-run</code></pre>
+
+  <h2>Limitations</h2>
+  <ul>
+    <li><strong>The cost model still ignores phasing</strong> — the single largest omission. The
+    servicer is assumed to arrive at the right point in the target's orbit for free.</li>
+    <li><strong>The instance family has no headroom left.</strong> A millisecond local search
+    ties the reference on all twelve instances, so the table ranks almost nothing. A stronger claim
+    about any solver needs harder instances, not more seeds.</li>
+    <li><strong>N=20 is uncertified.</strong> Held-Karp cannot run there, and CP-SAT's lower bound
+    is still 0.0 at its time limit, so "best-known" at N=20 is exactly that and nothing more.</li>
+    <li><strong>One QUBO formulation, one annealer, one QAOA depth range.</strong> These results
+    bound this encoding on this problem, not quantum optimisation in general.</li>
+    <li>No conjunction-risk weighting, propellant budget, time windows, or vehicle constraints.</li>
+  </ul>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>MIT licensed. Orbital elements from <a href="https://celestrak.org">Celestrak</a>,
+    propagated with <a href="https://pypi.org/project/sgp4/">sgp4</a>. Solvers from
+    <a href="https://github.com/dwavesystems/dwave-samplers">dwave-samplers</a>,
+    <a href="https://www.ibm.com/quantum/qiskit">Qiskit</a> and
+    <a href="https://developers.google.com/optimization">OR-Tools</a>.</p>
+    <p>Every number on this page comes from one committed benchmark run,
+    <code>results/canonical/</code>, whose manifest records the git SHA, a sha256 per instance,
+    library versions, CPU and seeds. Solution quality was identical across two independent runs of
+    it; wall-clock was not, which is why the runtime numbers are labelled as orders of magnitude.</p>
+  </div>
+</footer>
+
 </body>
 </html>

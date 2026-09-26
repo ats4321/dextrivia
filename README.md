@@ -1,62 +1,454 @@
 # Dextrivia
 
-**Orbital debris tracking and mission sequencing for low Earth orbit.**
+**An honest benchmark of classical, quantum-inspired and quantum solvers on a real orbital-debris sequencing problem.**
 
-Dextrivia ingests live Two-Line Element (TLE) data from Celestrak, propagates each debris object to a common epoch using SGP4, builds a delta-v cost matrix via Hohmann transfer approximations, and solves for an efficient removal sequence. It ships a greedy nearest-neighbor baseline and an exact Held-Karp solver, so every heuristic result can be compared against the true optimum rather than against hope. The long-term goal is a benchmarked comparison of classical and quantum / quantum-inspired solvers.
+Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost to
+transfer between any two, find the visiting order that costs the least. The
+deliverable of this repository is **the comparison**, not any one solver.
 
-The sequencing problem here is an **open path**: the servicer starts at the first object and stops at the last, with no return leg.
+![Solution quality by solver and problem size](docs/figures/bench_gap_vs_n.png)
+
+**Gap above the reference, mean ± 1 s.d. over 5 seeds.** Every cell comes from
+[`results/canonical/summary.csv`](results/canonical/summary.csv). `exact` is
+Held-Karp and is the reference wherever it ran; at N=20 it cannot run, so the
+reference is the best result any solver achieved and is labelled **best-known**
+— that is not an optimality gap and is not presented as one.
+
+**Static costs `C[i,j]`**
+
+| instance | N | reference (km/s) | `greedy` | `localsearch` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
+|---|---|---|---|---|---|---|---|---|---|
+| `n4_static` | 4 | 0.5946 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_static` | 5 | 0.8296 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | refused |
+| `n8_static` | 8 | 1.0824 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.61% ± 1.22 | refused |
+| `n10_static` | 10 | 1.3268 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +11.64% ± 6.22 | refused |
+| `n15_static` | 15 | 2.0151 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +63.57% ± 12.59 | refused |
+| `n20_static` | 20 | 2.4485 **best-known** | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +121.04% ± 9.00 | refused |
+
+**Time-dependent costs `C[t,i,j]`** (leg *k* departs 30 days after leg *k-1*)
+
+| instance | N | reference (km/s) | `greedy` | `localsearch` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
+|---|---|---|---|---|---|---|---|---|---|
+| `n4_td30d` | 4 | 0.5205 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | +0.00% |
+| `n5_td30d` | 5 | 0.8314 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | refused |
+| `n8_td30d` | 8 | 1.1124 *exact* | **+5.37%** | +0.00% | +0.00% | refused | +0.00% | +3.30% ± 2.70 | refused |
+| `n10_td30d` | 10 | 1.5165 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +14.65% ± 6.95 | refused |
+| `n15_td30d` | 15 | 2.1855 *exact* | **+5.18%** | +0.00% | +0.00% | refused | +0.00% | +47.20% ± 10.27 | refused |
+| `n20_td30d` | 20 | 3.6723 **best-known** | +0.00% | +0.00% | +0.00% | refused | +0.00% | +108.17% ± 9.67 | refused |
+
+"refused" is a recorded miss with a reason, not a crash and not a blank:
+`qaoa` above N=4 (the qubit wall), `ortools` on every time-dependent instance
+(a routing arc-cost callback cannot see how many legs have been flown), `exact`
+above N=18 (Held-Karp memory).
+
+### What this table says
+
+**No quantum or quantum-inspired solver here beats the classical baselines.**
+Three classical solvers — `localsearch`, `cpsat` and `sa-perm` — tie the
+reference on **all twelve instances**. `sa-qubo` is the only solver in the
+benchmark that fails, and `qaoa` cannot leave N=4. That is the result.
+
+**The QUBO encoding, not the annealing, is what fails.** `sa-perm` and `sa-qubo`
+are the same idea — simulated annealing on this objective — applied to two
+different search spaces: the permutations themselves, or N² binaries with
+penalty terms. `sa-perm` ties the reference everywhere in **one second per
+run**. `sa-qubo` degrades monotonically with N to **+121%**. Reporting
+`sa-qubo` without this control would have left the blame ambiguous between the
+annealer and the encoding; with it, the encoding is where the quality goes.
+
+**The cheapest solver in the benchmark also ties everywhere.** `localsearch`
+— greedy, then 2-opt and or-opt to a local optimum — matches the reference on
+all twelve instances in **at most 3 ms**, against a 60 s budget for `cpsat` and
+5 s for `ortools`. The two cells where plain `greedy` loses (`n8_td30d` +5.37%,
+`n15_td30d` +5.18%) are repaired by a few milliseconds of local search.
+
+**So this instance family has essentially no headroom left.** That is a finding
+about the benchmark, not a triumph: the interesting question has moved to
+instances hard enough that a millisecond heuristic does not already solve
+them.
 
 ---
 
-## Background
+## The problem, and why it matters
 
-The Iridium-Cosmos collision of 2009 produced more than 2,000 trackable fragments in low Earth orbit (LEO). These objects, concentrated between roughly 770 km and 800 km altitude, represent a well-studied and operationally significant debris cloud. Dextrivia uses this dataset as its primary case study.
+The 2009 Iridium-33 / Cosmos-2251 collision left more than 2,000 trackable
+fragments in low Earth orbit. Active debris removal — sending a servicer to
+capture several of them in one mission — is limited by propellant, so the
+*order* in which targets are visited decides whether a mission is affordable.
 
-Debris removal is fundamentally a sequencing problem: given N objects to visit and a cost (delta-v) to transfer between any pair, find the ordering that minimizes total propellant expenditure. This is structurally equivalent to the Traveling Salesman Problem, which is NP-hard in the general case and motivates the use of quantum-inspired optimization approaches.
+The mission is an **open path, not a TSP tour**. The servicer starts at the
+first object of the sequence and stops at the last. There is no return leg and
+no depot, so a sequence over N objects has exactly **N-1 legs**. This matters
+more than it sounds: the textbook TSP QUBO would charge the mission for a leg it
+never flies, and every solver, cost model and formulation here is written
+against the open-path definition.
 
----
-
-## How It Works
-
-```
-Celestrak TLE feed
-       |
-  dextrivia fetch  -- writes a new immutable snapshot under data/snapshots/
-       |
-  dextrivia build  -- selects N objects (explicit rule + seed), propagates them
-                      to the snapshot's median TLE epoch, builds the N x N
-                      Hohmann delta-v matrix, saves a ProblemInstance
-       |
-  dextrivia solve  -- greedy (all start points), exact (Held-Karp), or brute
-```
-
-### Orbital Propagation
-
-`src/dextrivia/propagation.py` wraps the `sgp4` Python library. Each object is propagated to a UTC epoch, returning position and velocity in the Earth-Centered Inertial (ECI) frame. The epoch is a parameter and defaults to the **median TLE epoch of the snapshot** — propagating far from the elements' own epoch quietly degrades every altitude.
-
-Transfer costs use the **mean semi-major axis** SGP4 carries (`Satrec.am`), not the instantaneous `|r|`. The instantaneous altitude oscillates once per orbit — about 285 km peak-to-peak for the most eccentric object in this dataset — which would otherwise encode "where each object happened to be at the chosen epoch" into the cost matrix. All radii use the WGS72 Earth radius (6378.135 km), the constant SGP4 itself uses.
-
-### Delta-V Cost Matrix
-
-`src/dextrivia/costs/hohmann.py` models each debris object as being in a circular coplanar orbit at its mean semi-major axis. The cost to transfer between object i and object j is the two-burn Hohmann delta-v:
-
-```
-dv1 = |v_transfer_periapsis - v_circular_i|
-dv2 = |v_circular_j - v_transfer_apoapsis|
-total = dv1 + dv2
-```
-
-The coplanar assumption is an approximation. Real transfers between objects at different inclinations require a plane-change burn, which can dominate the delta-v budget. The Hohmann model is appropriate for initial feasibility screening and baseline comparison.
-
-### Greedy Baseline
-
-`src/dextrivia/solvers/greedy.py` implements the classical nearest-neighbor heuristic from every possible start point and retains the best result. `src/dextrivia/solvers/exact.py` solves the same instance exactly by Held-Karp dynamic programming (N <= 18), with a brute-force enumerator (N <= 8) used as its test oracle.
-
-For the 10-object Iridium-33 instance, greedy finds a total delta-v of **0.1262 km/s** — and so does the exact solver. That tie is not a compliment to the heuristic: because the current cost model derives every cost from a single scalar per object (altitude), the optimal order is simply "visit in altitude order", which greedy trivially finds. **The benchmark is degenerate until the cost model models more than altitude.** `tests/test_degeneracy.py` documents this.
+Sequencing is NP-hard in general, which is what makes it a standard candidate
+for quantum and quantum-inspired optimisation — and what makes an honest
+classical baseline mandatory before anyone says the word "advantage".
 
 ---
 
-## Repository Structure
+## The physics model, and what it assumes
+
+Full write-up: **[`docs/physics.md`](docs/physics.md)**.
+
+Each object's orbit comes from its TLE, propagated with SGP4 to a common epoch —
+the snapshot's **median TLE epoch**, never a hardcoded date. Transfer cost is a
+two-burn impulsive manoeuvre between circular orbits at each object's **mean
+semi-major axis**, with the plane change folded into the burns and the split
+between them solved numerically rather than assumed.
+
+The single fact that shapes everything:
+
+| Quantity | This cloud |
+|---|---|
+| Mean altitude | 513 – 892 km |
+| Inclination | 85.96° – 86.47° (spread **0.51°**) |
+| RAAN | **the full circle** |
+| Median pairwise plane angle | **45.5°** |
+| Impulsive cost of that median plane change at 700 km | **5.80 km/s** |
+
+Inclination alone says the cloud is one orbit. RAAN says it is 107 of them.
+The exchange rate at 700 km is **1° of plane ≈ 0.131 km/s** against **100 km of
+altitude ≈ 0.053 km/s** — both matter, which is exactly what makes the
+sequencing non-trivial.
+
+![The cloud in the plane that costs delta-v](docs/figures/raan_altitude.png)
+
+Because a median leg costs more than a launch to GEO, full-cloud tours are
+physically absurd. Instances are built by a **`plane-cluster` rule** fixed before
+any solver runs: keep the objects nearest a seed object in true plane angle.
+The rule never looks at delta-v, let alone at which solver wins on the result.
+
+**Time dependence.** J2 makes the orbital nodes regress. Leg *k* is priced at
+`epoch + k · 30 days`, so a `td30d` instance carries a cost array `C[t,i,j]`
+where `t` is the position of the leg in the sequence. The drift here is
+**common-mode** (−0.405 to −0.505 °/day), so it largely cancels: the
+*differential* rate for a median pair is 0.016 °/day, i.e. **612 days to change
+their separation by 10°**. Waiting buys very little, and this repository does
+not pretend otherwise.
+
+### What the model still ignores
+
+Phasing (the largest omission — the servicer is assumed to arrive at the right
+point in the target's orbit for free), three-burn bi-elliptic transfers (so
+every large-angle cost is an upper bound), eccentricity, finite burns and
+gravity losses, time windows, propellant budget, vehicle constraints, and
+conjunction-risk weighting. None of these exist here.
+
+---
+
+## Why the first version of this project was wrong
+
+This repository began as an altitude-only tool. Three things were wrong with it,
+and all three are visible in the git history rather than reconstructed.
+
+**1. The propagation ran ~15 months backward.** `text_cost_matrix.py` in
+[`e837989`](../../commit/e837989) hardcoded `datetime(2025, 1, 1, 12, 0, 0)`
+while the TLE set's median epoch is `2026-04-02T07:05:22Z` — **455 days, 14.9
+months, in the wrong direction**. SGP4 is a *fitted* model whose accuracy decays
+away from its own epoch in either direction. Propagating this snapshot back to
+that date moves mean altitudes by +20.0 km on average and up to 108 km, and
+SGP4 refuses outright (error 6, decayed) on 1 of the 107 objects. The epoch is
+now a parameter that defaults to the snapshot's median TLE epoch, and there are
+no hardcoded calendar dates anywhere in the package.
+
+**2. Altitude was the instantaneous radius, with the wrong Earth.**
+`propagation.py` computed `|r| − 6371 km`. Two errors stacked: `|r|` oscillates
+once per orbit (about 285 km peak-to-peak for the most eccentric object here),
+and 6371 km is the mean spherical radius while SGP4 works internally in WGS72
+(6378.135 km). Against the mean semi-major axis the old figure disagrees by
++8.9 km on average and up to **144 km** per object — encoding "where the object
+happened to be at the chosen instant" into a cost matrix that is supposed to
+describe its orbit. Altitude is now `Satrec.am`, the mean semi-major axis, with
+WGS72 throughout.
+
+**3. The benchmark was degenerate, which is the one that actually mattered.**
+The coplanar Hohmann model derives every cost from **one scalar per object**.
+Objects on a single scalar axis lie on a line, so the cheapest open path is just
+"visit them in altitude order" — a sort. Nearest-neighbour greedy finds that
+sort, so greedy tied the exact Held-Karp optimum at **0.1262 km/s** on the
+10-object instance, and no solver of any kind could have demonstrated anything.
+A benchmark where the baseline is provably optimal measures nothing.
+
+This is locked down rather than deleted: [`tests/test_degeneracy.py`](tests/test_degeneracy.py)
+still asserts that sorting by altitude *is* optimal under the altitude-only
+model, so the degeneracy cannot quietly return. The plane-aware model made
+altitude order **56–339% worse than optimal** on every instance in the committed
+family, which is what created the headroom this benchmark measures.
+
+---
+
+## The QUBO formulation
+
+Full write-up: **[`docs/qubo.md`](docs/qubo.md)**.
+
+One binary per (object, position) pair, `x[i,p] = 1` when object *i* is visited
+*p*-th, so **N² variables**:
+
+```
+H(x) = H_obj(x) + A · H_pen(x)
+
+H_obj(x) = sum over p in 0..N-2 of  sum_ij  C_p[i,j] · x[i,p] · x[j,p+1]
+H_pen(x) = sum_i (1 - sum_p x[i,p])²  +  sum_p (1 - sum_i x[i,p])²
+```
+
+The objective sum runs to `N-2`, giving **N-1 terms** — the open path again, no
+wrap-around. `C_p` is `instance.leg_costs(p)`, so a time-slotted instance needs
+no extra machinery: the QUBO's position index and the instance's time slot are
+the same integer, and a time-dependent instance produces a QUBO of exactly the
+same shape.
+
+The penalty weight `A` is set to `1.1 × L_greedy`, a computable upper bound on
+the optimum: since `H_pen ≥ 1` on anything that is not a permutation matrix and
+`H_obj ≥ 0`, any `A > L*` makes every infeasible assignment worse than the
+optimum. On a feasible assignment the energy is *exactly* the path cost in km/s.
+
+**Raw and repaired results are kept apart everywhere.** `repair()` cannot fail,
+so a repaired delta-v always exists; quoting it as a sampler result would make a
+sampler that never once satisfied a constraint look successful.
+
+---
+
+## Conclusions
+
+### Where simulated annealing stands
+
+`sa-qubo` — simulated annealing on the QUBO — is the worst solver in this
+benchmark at every size above N=5, and it degrades with N: +0.61% at N=8,
++11.64% at N=10, +63.57% at N=15, +121.04% at N=20 (static). Time-dependent
+instances are no different (+3.30%, +14.65%, +47.20%, +108.17%).
+
+The reason is **the encoding, not the annealer**. `sa-perm` anneals the same
+objective over permutations instead of N² penalised binaries:
+
+| instance | `sa-perm` | `sa-qubo` |
+|---|---|---|
+| `n8_td30d` | +0.00% | +3.30% ± 2.70 |
+| `n10_td30d` | +0.00% | +14.65% ± 6.95 |
+| `n15_td30d` | +0.00% | +47.20% ± 10.27 |
+| `n20_td30d` | +0.00% | +108.17% ± 9.67 |
+
+`sa-perm` is given a **1 second wall-clock budget** across 4 restarts, against
+`sa-qubo`'s 500 reads × 1000 sweeps, which costs it 0.28–2.30 s. The comparison
+is therefore generous to `sa-qubo` twice over: it gets *more* wall clock at
+N=15 and N=20, and it is compiled C++ (`dwave-samplers`) against interpreted
+Python. Both budget currencies — the wall-clock limit and the realised
+iteration count — are recorded in `sa-perm`'s metadata so the comparison can be
+audited rather than believed.
+
+One caveat stated plainly: `sa-perm` **starts from the greedy solution**, so it
+cannot do worse than greedy, and part of its +0.00% is that head start rather
+than the annealing. `localsearch` — the same neighbourhood at zero temperature,
+also greedy-started — already ties everywhere in milliseconds, which suggests
+the annealing contributes little here beyond what the local search does. What
+the comparison does establish is narrower and still worth having: **at a budget
+that favours it, the QUBO encoding loses badly to searching the permutations
+directly.**
+
+The QUBO's penalty terms are not the problem either. **Raw feasibility is 1.00
+at every penalty weight at or above the provable threshold, on every
+time-dependent instance.** The constraints are satisfied; the objective is not
+being optimised. See the penalty study below.
+
+### Where QAOA stands
+
+**QAOA runs at N=4 and nowhere else in this benchmark.** The position encoding
+needs N² qubits and a dense statevector is 2^(N²) amplitudes: N=5 is 512 MB
+before the optimiser evaluates anything, N=6 is 1 TB. `exact` — a
+dynamic program from 1962 — reaches N=18 on the same laptop. **The quantum
+solver's ceiling sits an order of magnitude below the classical oracle's, on
+the same problem, in the same encoding. That gap is the headline quantum
+result of this project.**
+
+At N=4 the +0.00% gap in the table above **is not evidence of anything**. There
+are 24 possible sequences among 2^16 bitstrings; best-of-4096-shots plus repair
+recovers the optimum from uniform random bits. The only numbers at this size
+that carry signal are the ones measured against chance:
+
+| instance | raw feasibility | uniform baseline | P(optimal bitstring) | uniform P(optimal) | mean Δv of feasible samples | mean Δv of a random permutation |
+|---|---|---|---|---|---|---|
+| `n4_static` | **0.0344** ± 0.0251 | 0.000366 | **0.0049** ± 0.0041 | 0.0000305 (2 optimal sequences) | 0.9586 km/s | 1.0261 km/s |
+| `n4_td30d` | **0.0270** ± 0.0229 | 0.000366 | **0.0016** ± 0.0017 | 0.0000153 (1 optimal sequence) | 0.9103 km/s | 0.9735 km/s |
+
+Read honestly, that is one real effect and one disappointment:
+
+* **QAOA concentrates amplitude on the feasible subspace**, by roughly 94× on
+  the static instance and 74× on the time-dependent one, and on the optimal
+  bitstring by 162× and 102×. The uniform baselines are exact, not estimated:
+  24 permutation matrices among 65536 bitstrings, and the optimal-sequence
+  count enumerated over all 24 orders. (`n4_static` has **two** optimal
+  sequences because a static symmetric cost matrix makes a path and its reverse
+  tie; time dependence breaks that symmetry, leaving one.)
+* **Within the feasible set it barely optimises at all.** The mean delta-v of
+  its feasible samples is 6.6% better than a uniformly random permutation on
+  `n4_static` and 6.5% better on `n4_td30d`. It is finding permutations, not
+  good permutations.
+
+Every QAOA runtime in this repository is **classical statevector simulation
+time** — 63.3 s ± 7.3 per run on `n4_static` and 64.2 s ± 7.1 on `n4_td30d`. It
+is not a quantum runtime, and no quantum hardware was involved.
+
+### Where OR-Tools and CP-SAT stand
+
+`ortools` (routing, guided local search) ties the reference on **all six static
+instances** and **refuses all six time-dependent ones**. A routing arc-cost
+callback is a function of `(from, to)` and has no access to how many legs have
+been flown, so it cannot express `C[t,i,j]`. It returns a recorded miss instead
+of silently optimising a different problem.
+
+`cpsat` — a position-indexed CP-SAT model — has no such blind spot, because
+indexing a leg variable by position is exactly what a time slot is. **It ties
+the reference on all twelve instances**, including both time-dependent ones and
+both N=20 ones, and it is the only solver here that can certify anything: it
+**proved optimality on 55 of its 60 runs**, the exceptions being the two N=20
+instances where it returns a bound instead. Its runtime is a **configured time
+limit** (60 s), not a measurement.
+
+`localsearch` (greedy start, then 2-opt and or-opt to a local optimum, every
+move re-evaluated through `path_cost` so it is correct on time-slotted costs)
+also ties the reference on all twelve — in **0.000–0.003 s**. It is the
+cheapest solver in the benchmark and nothing beats it on quality.
+
+### The penalty study
+
+`DEFAULT_PENALTY_SAFETY = 1.1` was calibrated on one easy instance. Across all
+six time-dependent instances × 5 seeds × 8 weights, **it is dominated
+everywhere**. Gap above the reference, mean over 5 seeds:
+
+| instance | 0.5 | 1.0 | 1.05 | **1.1** | 1.5 | 2.0 | 4.0 | 8.0 |
+|---|---|---|---|---|---|---|---|---|
+| `n4_td30d` | +0.0 | +0.0 | +0.0 | **+0.0** | +0.0 | +0.0 | +0.0 | +0.0 |
+| `n5_td30d` | +0.0 | +0.0 | +0.0 | **+0.0** | +0.0 | +0.0 | +0.0 | +0.0 |
+| `n8_td30d` | +0.0 | +2.1 | +0.0 | **+3.3** | +3.4 | +7.9 | +11.6 | +48.2 |
+| `n10_td30d` | +0.0 | +8.8 | +7.2 | **+14.7** | +15.3 | +26.4 | +52.6 | +61.4 |
+| `n15_td30d` | +18.4 | +38.5 | +41.8 | **+47.2** | +68.7 | +73.4 | +127.2 | +143.4 |
+| `n20_td30d` | +51.2 | +105.7 | +108.5 | **+108.2** | +129.9 | +134.0 | +187.2 | +232.0 |
+
+![QUBO penalty weight against feasibility and quality](docs/figures/qubo_penalty_sweep.png)
+
+Two things follow, and they point the same way:
+
+1. **A bigger penalty buys no feasibility.** Raw feasibility is already 1.000 at
+   weight 1.0 on every instance, and stays 1.000 through 8.0. Below the
+   threshold it falls to 0.54–0.93 — and the *quality* there is the best on the
+   whole table. The bound is worst-case; "provably sufficient" and "works well"
+   are different properties.
+2. **A bigger penalty costs quality, monotonically.** At `n15_td30d` the shipped
+   default is nearly three times worse than weight 0.5. Raising the penalty
+   compresses the objective into the numerical shadow of the constraint terms,
+   and the sampler loses the ability to tell a good path from a mediocre one.
+
+The default should be swept per instance rather than trusted. This does not
+rescue `sa-qubo`: even its best weight at `n15_td30d` (+18.4%) is far worse than
+`sa-perm`, `localsearch` and `cpsat`, all of which reach the optimum there.
+
+### Time to solution
+
+![Time to solution by solver and problem size](docs/figures/bench_runtime_vs_n.png)
+
+Read with three caveats, all of which are printed on the figure: `qaoa` is
+classical statevector simulation time; `ortools` and `cpsat` burn a configured
+time limit, which is a knob and not a measurement; and `sa-perm` is numpy
+against `sa-qubo`'s compiled C++ at an identical proposal count. These are
+laptop wall-clock numbers — treat them as orders of magnitude, not as a ranking
+of implementations.
+
+### One route, drawn on the plane that costs delta-v
+
+![The best-known route for n10_td30d on RAAN vs altitude](docs/figures/best_sequence_raan_altitude.png)
+
+### How reproducible is any of this?
+
+The benchmark was executed five times while this was being built.
+
+**Solution quality is fully deterministic given the seeds.** Across the first
+four runs all 108 gap cells were identical every time. The fifth run swapped
+three solvers (`cpsat`, `localsearch`, `sa-perm` — see the note below), and the
+**72 cells belonging to the six unchanged solvers came out identical again**,
+which is the strongest statement available: the harness, the instances and the
+seeds reproduce exactly, and only a deliberate change to a solver moves a
+number.
+
+Wall-clock is *not* deterministic, and that is worth stating plainly because it
+is the part most likely to be quoted:
+
+* One run overlapped with other work on this laptop and inflated the N=15 block
+  by about 6×. Plotted, it drew the permutation annealer peaking at N=15 and
+  *falling* at N=20 — the opposite of its own scaling. That run was discarded
+  rather than shipped with a caveat.
+* QAOA measured 145.6 s per run on a hot laptop and 63.3 s on a cool one, for
+  identical output.
+
+The committed run was made on an idle machine from a clean tree. This is why
+the runtime figure carries three caveats and the quality tables carry none.
+
+The manifest records `"dirty": true` with four `dirty_paths`, all of them the
+run's own output files under `results/canonical/` — the run necessarily writes
+into the tree it is measuring. No source file was uncommitted, which is exactly
+what listing the paths rather than a bare boolean lets you check.
+
+### A note on where the solvers came from
+
+`cpsat`, `localsearch` and `sa-perm` were built by a parallel workspace and
+merged to `main` first. This branch had independently built its own versions of
+all three; they were deleted on merge, because two implementations of one solver
+cannot both live in the registry. The numbers above are the merged solvers'.
+Two design differences are worth knowing, since both were decided the other way
+here before the merge:
+
+* **`sa-perm`'s budget is matched to `sa-qubo` by wall clock**, not by proposed
+  moves. That makes the comparison conservative (interpreted Python against
+  compiled C++) but also makes the result depend on the machine it ran on, which
+  a proposal-matched budget would not.
+* **`cpsat` has no greedy warm start** and a 60 s limit. Without a warm start,
+  and at a 10 s limit, CP-SAT was measured returning a path *worse* than greedy
+  at N=20; the longer budget appears to cover that, and it proves optimality on
+  55 of 60 runs.
+
+---
+
+## Reproduce it
+
+From a clean clone, three commands:
+
+```bash
+uv sync --all-extras                                   # 1. install, including optional backends
+uv run dextrivia bench --out results/my-run            # 2. run every solver (~30 min)
+uv run python scripts/plot_benchmark.py results/my-run # 3. regenerate every figure
+```
+
+A quick run, for checking the harness rather than reproducing the numbers:
+
+```bash
+uv run dextrivia bench --instances n4 --solvers greedy,exact,cpsat --seeds 1 --no-penalty-study
+```
+
+Tests, lint and format:
+
+```bash
+uv run pytest
+uv run ruff check . && uv run ruff format --check .
+```
+
+Everything the benchmark needs is committed: the TLE snapshot
+(`data/snapshots/iridium33_20260402.json`), the 12-file instance family
+(`data/instances/`), and the canonical results run (`results/canonical/`). No
+network access is required to reproduce any number in this README.
+
+### What a results directory contains
+
+| File | Contents |
+|---|---|
+| `results.csv` | one row per (instance, solver, seed) run |
+| `summary.csv` | one row per (instance, solver): mean, standard deviation, best |
+| `penalty_sweep.csv` | QUBO feasibility and quality against penalty weight |
+| `manifest.json` | git SHA, per-instance sha256, library versions, CPU, seeds |
+
+---
+
+## Repository layout
 
 ```
 src/dextrivia/
@@ -64,108 +456,45 @@ src/dextrivia/
 |-- propagation.py          SGP4 wrapper, mean semi-major axis at an epoch
 |-- snapshots.py            fetch / load / select immutable TLE snapshots
 |-- instances.py            snapshot + selection + cost model -> instance
-|-- cli.py                  dextrivia fetch | build | solve
-|-- costs/hohmann.py        coplanar Hohmann delta-v cost model
-|-- solvers/greedy.py       nearest-neighbor from every start point
-|-- solvers/exact.py        Held-Karp DP + brute-force oracle
+|-- bench.py                the benchmark harness
+|-- cli.py                  dextrivia fetch | build | solve | bench
+|-- costs/                  hohmann (baseline), realistic (plane-aware), selection
+|-- qubo/                   open-path QUBO: formulation, decode, repair, penalty
+|-- solvers/                greedy, exact, brute, localsearch, sa-perm,
+|                           sa-qubo, qaoa, ortools, cpsat
 data/snapshots/             committed, timestamped TLE sets
-data/instances/             built problem instances (derived, gitignored)
-tests/                      pytest suite
-dextrivia-landing.html      project landing page
-CLAUDE.md                   interfaces, conventions, directory ownership
+data/instances/             the committed plane-cluster instance family
+results/canonical/          the committed benchmark run this README cites
+scripts/                    instance family, figures, benchmark output check
+docs/physics.md             the cost models and their validation
+docs/qubo.md                the QUBO formulation and its characterization
 ```
 
 ---
 
-## Installation
-
-**Requirements:** Python 3.11 or later.
-
-Managed with [uv](https://docs.astral.sh/uv/):
-
-```bash
-uv sync --all-extras
-uv run pytest
-```
-
----
-
-## Usage
-
-### 1. Fetch fresh TLE data
-
-```bash
-uv run dextrivia fetch
-```
-
-Downloads the current Iridium-33 debris catalog from Celestrak into a **new** file under `data/snapshots/`. Existing snapshots are never overwritten.
-
-### 2. Build a problem instance
-
-```bash
-uv run dextrivia build --n 10 --select first
-```
-
-Selects objects by an explicit rule (`first` or seeded `random`), propagates them to the snapshot's median TLE epoch, builds the delta-v matrix, and saves a `ProblemInstance` under `data/instances/`. Snapshot, selection rule, seed, epoch and cost model are all recorded in the instance's metadata.
-
-Without `--snapshot`, `build` uses the newest snapshot **of the default `iridium-33-debris` group**, ordered by the date in the filename. Snapshots of another group are never picked implicitly — switching datasets always takes an explicit `--snapshot`.
-
-### 3. Solve it
-
-```bash
-uv run dextrivia solve --instance data/instances/iridium33_20260402_n10_first.npz --solver greedy
-uv run dextrivia solve --instance data/instances/iridium33_20260402_n10_first.npz --solver exact
-```
-
-**Sample output:**
-
-```
-solver     exact
-instance   data/instances/iridium33_20260402_n10_first.npz (N=10, hohmann-coplanar)
-epoch      2026-04-02T07:05:22.337088+00:00
-total dv   0.126246 km/s
-runtime    6.6 ms
-sequence   (NORAD id, leg delta-v km/s)
-   1.  33862   start
-   2.  33860   +0.005137
-   3.  33777   +0.022222
-   ...
-```
-
-Objects are identified by NORAD catalog ID throughout: 106 of the 107 objects in this dataset share the name `IRIDIUM 33 DEB`.
-
----
-
-## Data Sources
+## Data sources
 
 | Source | Description | License |
 |--------|-------------|---------|
 | [Celestrak](https://celestrak.org) | TLE catalog, Iridium-33 debris group | Free for non-commercial use |
-| [Space-Track](https://www.space-track.org) | Official USSPACECOM catalog | Requires free account registration |
 
-TLEs are fetched from Celestrak's `gp.php` endpoint using the `iridium-33-debris` group identifier. No API key is required for Celestrak. Space-Track is not currently used.
+TLEs are fetched from Celestrak's `gp.php` endpoint using the
+`iridium-33-debris` group. No API key is required. Snapshots are immutable:
+`dextrivia fetch` always writes a new file and never overwrites one, so a
+benchmark can cite a filename.
 
----
-
-## Limitations and Future Work
-
-- **Degenerate benchmark:** with altitude-only costs the optimum is just "visit in altitude order", so greedy already ties the exact solver and no solver can show an advantage. This is the first thing that needs fixing.
-- **Coplanar assumption:** The Hohmann model ignores inclination differences between debris objects. A full 3D transfer cost accounting for plane changes will significantly change the cost matrix.
-- **Epoch sensitivity:** Debris orbits decay over time. The cost matrix is only valid near the propagation epoch, which is why the epoch defaults to the snapshot's median TLE epoch. Long-horizon planning requires re-propagation at each step.
-- **QUBO solver:** The next milestone is formulating the sequencing problem as a QUBO and solving it with a quantum annealer or simulated annealing backend (D-Wave, Qiskit, or Neal), benchmarked against greedy and the exact optimum.
-- **Conjunction analysis:** The current tool does not model collision probabilities or conjunction events. Adding a conjunction screening step would enable risk-weighted prioritization.
-- **Maneuver modeling:** Actual debris removal vehicles have propellant limits and attitude constraints. The cost matrix does not model these.
+The committed snapshot's `fetched_utc` is `null` — it predates the packaged
+fetcher, which never recorded a download time. Inventing one would be worse than
+admitting the gap.
 
 ---
 
 ## License
 
-MIT. See `LICENSE` for details.
-
----
+MIT. See [`LICENSE`](LICENSE).
 
 ## Acknowledgments
 
-- [sgp4 Python library](https://pypi.org/project/sgp4/) by Brandon Rhodes, implementing the Vallado SGP4 formulation.
-- [Celestrak](https://celestrak.org) maintained by T.S. Kelso for providing freely accessible orbital element sets.
-- The Iridium-Cosmos collision dataset has been a standard reference for LEO debris research since 2009.
+- [sgp4](https://pypi.org/project/sgp4/) by Brandon Rhodes, implementing the Vallado SGP4 formulation.
+- [Celestrak](https://celestrak.org), maintained by T.S. Kelso.
+- [D-Wave `dwave-samplers`](https://github.com/dwavesystems/dwave-samplers), [Qiskit](https://www.ibm.com/quantum/qiskit) and [Google OR-Tools](https://developers.google.com/optimization).

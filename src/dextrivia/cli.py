@@ -1,6 +1,6 @@
-"""Command line interface: ``dextrivia fetch | build | solve``.
+"""Command line interface: ``dextrivia fetch | build | solve | bench``.
 
-argparse rather than typer: it is stdlib, and this CLI is three verbs.
+argparse rather than typer: it is stdlib, and this CLI is four verbs.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dextrivia import bench as bench_module
 from dextrivia.core import ProblemInstance
 from dextrivia.instances import build_instance
 from dextrivia.snapshots import (
@@ -140,6 +141,10 @@ def build_parser() -> argparse.ArgumentParser:
     solve.add_argument("--solver", choices=sorted(SOLVERS), default="greedy")
     solve.add_argument("--seed", type=int, default=None)
     solve.set_defaults(func=_cmd_solve)
+
+    bench = sub.add_parser("bench", help="run every solver over the instance family")
+    bench_module.add_arguments(bench)
+    bench.set_defaults(func=bench_module.main)
 
     return parser
 

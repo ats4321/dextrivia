@@ -21,6 +21,22 @@ jobs:
       - name: Test
         run: uv run pytest
 
+      # End-to-end on the real CLI, on the smallest instance, one seed. The
+      # pytest suite covers the harness's bookkeeping; this covers the thing
+      # pytest cannot, which is `dextrivia bench` still being a working command.
+      # qaoa is excluded on purpose: it is a statevector simulation and takes
+      # about a minute per run even at N=4. The penalty sweep is excluded for
+      # the same reason -- both are exercised by the canonical run, not by CI.
+      - name: Benchmark smoke test
+        run: |
+          uv run dextrivia bench \
+            --instances n4_static \
+            --solvers greedy,exact,brute,sa-qubo,sa-perm,localsearch,cpsat \
+            --seeds 1 \
+            --no-penalty-study \
+            --out "${RUNNER_TEMP}/bench-smoke"
+          uv run python scripts/check_bench_output.py "${RUNNER_TEMP}/bench-smoke"
+
   # The quantum extra is optional on purpose: the core benchmark has to stay
   # installable on a machine with no qiskit, no ortools and no D-Wave Ocean.
   # This job is what stops a module-scope backend import from sneaking in --

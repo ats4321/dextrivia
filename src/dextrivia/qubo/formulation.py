@@ -240,6 +240,13 @@ def summarize_samples(
     honest number -- it says how often the sampler respected the one-hot
     constraints on its own. ``best_repaired_dv`` always exists, which is exactly
     why it must never be quoted as if it were a raw result.
+
+    ``mean_feasible_dv_kms`` and ``best_raw_sample_count`` exist so a benchmark
+    can ask the two questions a best-of-shots number cannot answer: is the
+    distribution the sampler produces better than chance, and how often did it
+    actually land on its own best answer. Both are computed without any
+    reference to the optimum -- the oracle stays outside the solver, and the
+    caller combines these with it (see ``dextrivia.bench``).
     """
     samples = np.atleast_2d(np.asarray(samples, dtype=int))
     n = instance.n
@@ -248,6 +255,7 @@ def summarize_samples(
     best_was_raw = False
     best_raw: tuple[float, tuple[int, ...]] | None = None
     best_repaired: tuple[float, tuple[int, ...]] | None = None
+    feasible_costs: list[float] = []
 
     for sample in samples:
         sequence = decode(sample, n)
@@ -255,6 +263,7 @@ def summarize_samples(
         if sequence is not None:
             raw_feasible += 1
             cost = instance.path_cost(sequence)
+            feasible_costs.append(cost)
             if best_raw is None or cost < best_raw[0]:
                 best_raw = (cost, sequence)
         else:
@@ -275,6 +284,16 @@ def summarize_samples(
         # True when the overall best came out of the sampler already feasible,
         # i.e. the repair contributed nothing to the headline number.
         "best_was_raw_sample": best_was_raw,
+        # Mean over RAW-feasible samples only. A best-of-shots figure says what
+        # the luckiest shot did; this says what the distribution looks like,
+        # which is the only part that can beat a random baseline at small N.
+        "mean_feasible_dv_kms": float(np.mean(feasible_costs)) if feasible_costs else None,
+        # How many samples tied the best raw one. Divided by num_samples, and
+        # given an oracle saying the best raw result IS the optimum, this is the
+        # empirical probability of sampling an optimal bitstring.
+        "best_raw_sample_count": (
+            sum(1 for cost in feasible_costs if cost <= best_raw[0] + 1e-12) if best_raw else 0
+        ),
         "penalty": qubo.penalty,
     }
 

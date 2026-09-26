@@ -32,8 +32,14 @@ SOLVERS = {
     CPSATSolver.name: CPSATSolver,
 }
 
+#: Solvers whose result does not depend on ``seed``. ``dextrivia bench`` runs
+#: these once instead of once per seed -- three identical Held-Karp runs
+#: measure nothing and cost oracle time.
+DETERMINISTIC = frozenset({GreedySolver.name, ExactSolver.name, BruteForceSolver.name})
+
 __all__ = [
     "GreedySolver",
+    "DETERMINISTIC",
     "ExactSolver",
     "BruteForceSolver",
     "SimulatedAnnealingSolver",
