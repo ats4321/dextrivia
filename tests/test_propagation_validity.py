@@ -211,10 +211,10 @@ def test_cli_rebuilds_committed_instances(tmp_path, committed: Path, argv):
     assert code == 0
     rebuilt, original = ProblemInstance.load(out), ProblemInstance.load(committed)
     assert rebuilt.norad_ids == original.norad_ids
-    # Same objects; costs to 1e-12 rather than bit-for-bit, because libm and the
-    # sgp4 build differ in the last ulp between macOS (where the family was
-    # built) and Linux CI -- same tolerance as tests/test_instance_family.py.
-    np.testing.assert_allclose(rebuilt.costs, original.costs, rtol=1e-12)
+    # Same objects; costs to 1e-12 relative (plus 1e-9 km/s absolute, for the
+    # smallest legs) rather than bit-for-bit: libm and the sgp4 build differ in
+    # the last ulp between macOS, where the family was built, and Linux CI.
+    np.testing.assert_allclose(rebuilt.costs, original.costs, rtol=1e-12, atol=1e-9)
 
 
 def test_cli_builds_edelbaum_plane_cluster(tmp_path, capsys):
