@@ -1,0 +1,259 @@
+{
+ "date_utc": "2026-09-28T03:21:19+00:00",
+ "initial_state": "basis (identity order, X gates)",
+ "reps": 1,
+ "shots": 4096,
+ "min_estimated_fidelity_to_submit": 0.01,
+ "versions": {
+  "qiskit": "2.5.2",
+  "qiskit-ibm-runtime": "0.50.0",
+  "numpy": "2.4.6",
+  "scipy": "1.17.1"
+ },
+ "runs": [
+  {
+   "instance": "n3_static (first 3 of n4)",
+   "n": 3,
+   "qubits": 9,
+   "gammas": [
+    4.686376821634392
+   ],
+   "betas": [
+    0.7853981633974483
+   ],
+   "angle_rule": "beta = pi/4, gamma = pi / mean path cost; fixed, not optimised",
+   "initial_sequence": [
+    0,
+    1,
+    2
+   ],
+   "start_state_dv_kms": 0.7031930973440708,
+   "optimum_kms": 0.5084596075586589,
+   "random_mean_dv_kms": 0.6703670603453844,
+   "uniform_bitstring_feasibility": 0.01171875,
+   "noiseless": {
+    "feasibility_rate": 1.0,
+    "optimal_probability": 0.2499999999999999,
+    "mean_dv_kms": 0.7026374142923937,
+    "source": "exact subspace simulation of the same circuit and angles"
+   },
+   "noiseless_distribution": [
+    0.25,
+    0.2499999999999999,
+    0.2499999999999999,
+    0.24999999999999983,
+    0.0,
+    0.0
+   ],
+   "transpiled": {
+    "backend": "fake_fez",
+    "transpiled_depth": 929,
+    "two_qubit_depth": 301,
+    "two_qubit_gates": 368,
+    "count_ops": {
+     "sx": 630,
+     "rz": 479,
+     "cz": 368,
+     "x": 21,
+     "measure": 9,
+     "barrier": 1
+    },
+    "estimated_fidelity": 0.3251654347670312,
+    "optimization_level": 3
+   }
+  },
+  {
+   "instance": "n3_td30d (first 3 of n4)",
+   "n": 3,
+   "qubits": 9,
+   "gammas": [
+    4.785694077077137
+   ],
+   "betas": [
+    0.7853981633974483
+   ],
+   "angle_rule": "beta = pi/4, gamma = pi / mean path cost; fixed, not optimised",
+   "initial_sequence": [
+    0,
+    1,
+    2
+   ],
+   "start_state_dv_kms": 0.6786487279034661,
+   "optimum_kms": 0.43163965081973693,
+   "random_mean_dv_kms": 0.6564549682850854,
+   "uniform_bitstring_feasibility": 0.01171875,
+   "noiseless": {
+    "feasibility_rate": 1.0,
+    "optimal_probability": 0.0,
+    "mean_dv_kms": 0.7201792545714066,
+    "source": "exact subspace simulation of the same circuit and angles"
+   },
+   "noiseless_distribution": [
+    0.25,
+    0.25,
+    0.25,
+    0.24999999999999994,
+    0.0,
+    0.0
+   ],
+   "transpiled": {
+    "backend": "fake_fez",
+    "transpiled_depth": 924,
+    "two_qubit_depth": 301,
+    "two_qubit_gates": 368,
+    "count_ops": {
+     "sx": 630,
+     "rz": 474,
+     "cz": 368,
+     "x": 22,
+     "measure": 9,
+     "barrier": 1
+    },
+    "estimated_fidelity": 0.3251654347670312,
+    "optimization_level": 3
+   }
+  },
+  {
+   "instance": "n4_static",
+   "n": 4,
+   "qubits": 16,
+   "gammas": [
+    3.061815051603124
+   ],
+   "betas": [
+    0.7853981633974483
+   ],
+   "angle_rule": "beta = pi/4, gamma = pi / mean path cost; fixed, not optimised",
+   "initial_sequence": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "start_state_dv_kms": 0.7893617371173087,
+   "optimum_kms": 0.5946282473318969,
+   "random_mean_dv_kms": 1.0260556567402392,
+   "uniform_bitstring_feasibility": 0.0003662109375,
+   "noiseless": {
+    "feasibility_rate": 1.0,
+    "optimal_probability": 0.12500000000000003,
+    "mean_dv_kms": 1.026055656740239,
+    "source": "exact subspace simulation of the same circuit and angles"
+   },
+   "noiseless_distribution": [
+    0.12500000000000006,
+    0.12500000000000003,
+    0.12500000000000003,
+    0.0,
+    0.12499999999999994,
+    0.0,
+    0.12500000000000003,
+    0.12499999999999994,
+    0.12499999999999994,
+    0.0,
+    0.1249999999999999,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "transpiled": {
+    "backend": "fake_fez",
+    "transpiled_depth": 1673,
+    "two_qubit_depth": 582,
+    "two_qubit_gates": 1212,
+    "count_ops": {
+     "sx": 2019,
+     "rz": 1387,
+     "cz": 1212,
+     "x": 79,
+     "measure": 16,
+     "barrier": 1
+    },
+    "estimated_fidelity": 0.02061212874443324,
+    "optimization_level": 3
+   }
+  },
+  {
+   "instance": "n4_td30d",
+   "n": 4,
+   "qubits": 16,
+   "gammas": [
+    3.227032936329598
+   ],
+   "betas": [
+    0.7853981633974483
+   ],
+   "angle_rule": "beta = pi/4, gamma = pi / mean path cost; fixed, not optimised",
+   "initial_sequence": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "start_state_dv_kms": 0.7073407825971285,
+   "optimum_kms": 0.5204973409774242,
+   "random_mean_dv_kms": 0.9735235789576464,
+   "uniform_bitstring_feasibility": 0.0003662109375,
+   "noiseless": {
+    "feasibility_rate": 1.0,
+    "optimal_probability": 0.0,
+    "mean_dv_kms": 0.9951582696084689,
+    "source": "exact subspace simulation of the same circuit and angles"
+   },
+   "noiseless_distribution": [
+    0.12500000000000006,
+    0.12499999999999997,
+    0.12499999999999997,
+    0.0,
+    0.12499999999999994,
+    0.0,
+    0.12499999999999994,
+    0.12499999999999994,
+    0.12499999999999994,
+    0.0,
+    0.1249999999999999,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "transpiled": {
+    "backend": "fake_fez",
+    "transpiled_depth": 1672,
+    "two_qubit_depth": 582,
+    "two_qubit_gates": 1212,
+    "count_ops": {
+     "sx": 2019,
+     "rz": 1388,
+     "cz": 1212,
+     "x": 80,
+     "measure": 16,
+     "barrier": 1
+    },
+    "estimated_fidelity": 0.02061212874443324,
+    "optimization_level": 3
+   }
+  }
+ ],
+ "status": "skipped",
+ "reason": "no IBM_QUANTUM_TOKEN in the environment or in san-diego/.env; transpiled cost is reported against FakeFez, nothing was submitted"
+}
