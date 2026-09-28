@@ -32,6 +32,7 @@ from dextrivia.core import ProblemInstance
 __all__ = [
     "PathQUBO",
     "build_qubo",
+    "objective_qubo",
     "default_penalty",
     "DEFAULT_PENALTY_SAFETY",
     "path_upper_bound",
@@ -149,6 +150,31 @@ def default_penalty(instance: ProblemInstance, safety: float = DEFAULT_PENALTY_S
     return float(safety * bound)
 
 
+def _objective_matrix(instance: ProblemInstance) -> np.ndarray:
+    """Full (not yet triangular) N**2 x N**2 matrix of H_obj alone."""
+    n = instance.n
+    m = np.zeros((n * n, n * n))
+    # Objective: N-1 legs, leg p connects position p to position p+1.
+    for p in range(n - 1):
+        departing = np.arange(n) * n + p
+        arriving = np.arange(n) * n + p + 1
+        m[np.ix_(departing, arriving)] += instance.leg_costs(p)
+    return m
+
+
+def objective_qubo(instance: ProblemInstance) -> PathQUBO:
+    """H_obj with no penalty at all, for a solver that never leaves the feasible set.
+
+    A constraint-preserving ansatz (``qaoa-swap``) only ever puts amplitude on
+    permutation matrices, where H_pen is identically zero -- so the penalty is
+    not merely unnecessary there, it is a constant that buys nothing. The energy
+    of a permutation matrix under this QUBO is exactly its path cost in km/s;
+    on anything else it is meaningless, and nothing should evaluate it there.
+    """
+    m = _objective_matrix(instance)
+    return PathQUBO(n=instance.n, penalty=0.0, Q=np.triu(m) + np.tril(m, -1).T, offset=0.0)
+
+
 def build_qubo(instance: ProblemInstance, penalty: float | None = None) -> PathQUBO:
     """Build the position-encoded QUBO. ``penalty=None`` uses ``default_penalty``."""
     costs_min = float(np.min(instance.costs))
@@ -162,14 +188,7 @@ def build_qubo(instance: ProblemInstance, penalty: float | None = None) -> PathQ
     if a <= 0.0:
         raise ValueError(f"penalty must be positive, got {a}")
 
-    size = n * n
-    m = np.zeros((size, size))
-
-    # Objective: N-1 legs, leg p connects position p to position p+1.
-    for p in range(n - 1):
-        departing = np.arange(n) * n + p
-        arriving = np.arange(n) * n + p + 1
-        m[np.ix_(departing, arriving)] += instance.leg_costs(p)
+    m = _objective_matrix(instance)
 
     # Penalty: each object visited exactly once, each position filled exactly
     # once. Expanding (1 - S)**2 gives 1 - 2S + S**2; the 1 goes to the offset,
