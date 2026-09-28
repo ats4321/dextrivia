@@ -9,6 +9,8 @@ OWNED BY THE PHYSICS WORKSPACE. Anything added here must implement
                optional J2 nodal drift between legs.
 ``selection``  ``plane-cluster`` target selection, so instances are missions a
                servicer could actually fly.
+``validity``   how far SGP4 can be trusted (a measured horizon) and screening
+               out objects it cannot propagate.
 """
 
 from dextrivia.costs.hohmann import HohmannCostModel, hohmann_dv
