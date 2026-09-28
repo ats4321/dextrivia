@@ -18,6 +18,7 @@ from dextrivia.solvers.ortools_routing import ORToolsRoutingSolver
 from dextrivia.solvers.permutation import LocalSearchSolver, PermutationAnnealingSolver
 from dextrivia.solvers.quantum_annealing import SimulatedAnnealingSolver
 from dextrivia.solvers.quantum_qaoa import QAOASolver
+from dextrivia.solvers.quantum_qaoa_swap import QAOASwapSolver
 
 #: Name -> solver class, for the CLI and benchmarks.
 SOLVERS = {
@@ -26,6 +27,7 @@ SOLVERS = {
     BruteForceSolver.name: BruteForceSolver,
     SimulatedAnnealingSolver.name: SimulatedAnnealingSolver,
     QAOASolver.name: QAOASolver,
+    QAOASwapSolver.name: QAOASwapSolver,
     ORToolsRoutingSolver.name: ORToolsRoutingSolver,
     LocalSearchSolver.name: LocalSearchSolver,
     PermutationAnnealingSolver.name: PermutationAnnealingSolver,
@@ -44,6 +46,7 @@ __all__ = [
     "BruteForceSolver",
     "SimulatedAnnealingSolver",
     "QAOASolver",
+    "QAOASwapSolver",
     "ORToolsRoutingSolver",
     "LocalSearchSolver",
     "PermutationAnnealingSolver",
