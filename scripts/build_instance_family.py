@@ -1,7 +1,7 @@
 """Generate a versioned plane-cluster instance family.
 
     uv run python scripts/build_instance_family.py                 # v2: build + report
-    uv run python scripts/build_instance_family.py --version v1    # rebuild v1 (identical arrays)
+    uv run python scripts/build_instance_family.py --version v1    # rebuild v1 (costs to ~1e-12)
     uv run python scripts/build_instance_family.py --check         # report on files on disk
 
 File names::

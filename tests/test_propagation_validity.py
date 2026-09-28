@@ -197,7 +197,7 @@ def test_v2_is_not_picked_up_by_the_flat_bench_glob():
         ),
     ],
 )
-def test_cli_rebuilds_committed_instances_exactly(tmp_path, committed: Path, argv):
+def test_cli_rebuilds_committed_instances(tmp_path, committed: Path, argv):
     argv = list(argv)
     argv[1] = str(default_snapshot_dir() / argv[1])
     out = tmp_path / "rebuilt.npz"
@@ -211,7 +211,10 @@ def test_cli_rebuilds_committed_instances_exactly(tmp_path, committed: Path, arg
     assert code == 0
     rebuilt, original = ProblemInstance.load(out), ProblemInstance.load(committed)
     assert rebuilt.norad_ids == original.norad_ids
-    assert np.array_equal(rebuilt.costs, original.costs)
+    # Same objects; costs to 1e-12 rather than bit-for-bit, because libm and the
+    # sgp4 build differ in the last ulp between macOS (where the family was
+    # built) and Linux CI -- same tolerance as tests/test_instance_family.py.
+    np.testing.assert_allclose(rebuilt.costs, original.costs, rtol=1e-12)
 
 
 def test_cli_builds_edelbaum_plane_cluster(tmp_path, capsys):
