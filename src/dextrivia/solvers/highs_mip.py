@@ -222,7 +222,7 @@ def separate(model: CutLP, solution: np.ndarray) -> int:
     return added
 
 
-def _solve_lp(model: CutLP) -> Any:
+def _solve_lp(model: CutLP, time_limit_s: float | None = None) -> Any:
     from scipy.optimize import linprog
 
     cuts = model.cut_matrix()
@@ -236,6 +236,8 @@ def _solve_lp(model: CutLP) -> Any:
         # Interior point: 2-3x faster than dual simplex per cut round at N=40,
         # because scipy cannot warm-start the simplex between rounds anyway.
         method="highs-ipm",
+        # Enforced inside the solve: at N=50 one LP can outlast the whole budget.
+        options={} if time_limit_s is None else {"time_limit": max(1.0, time_limit_s)},
     )
 
 
@@ -253,27 +255,39 @@ def lp_lower_bound(
     plain = None
     rounds = 0
     result = None
+    value = None  # last LP that solved to optimality; only those are bounds
+    stopped = "converged"
     while rounds < max_rounds:
+        remaining = None if time_limit_s is None else time_limit_s - (time.perf_counter() - t0)
+        if remaining is not None and remaining <= 0:
+            stopped = "time limit"
+            break
         rounds += 1
-        result = _solve_lp(model)
+        result = _solve_lp(model, remaining)
         if result.status != 0:
-            raise RuntimeError(f"LP failed: {result.message}")
+            # Time limit (or numerical trouble) inside an LP: an unfinished LP
+            # proves nothing, so keep the previous round's value.
+            stopped = f"LP status {result.status}: {result.message}"
+            break
+        value = float(result.fun)
         model.solution = result.x
         if plain is None:
-            plain = float(result.fun)
-        if time_limit_s is not None and time.perf_counter() - t0 > time_limit_s:
-            break
+            plain = value
         if separate(model, result.x) == 0:
             break
-    assert result is not None
+    else:
+        stopped = "max rounds"
+    # Costs are non-negative, so 0 is always a valid (useless) bound.
+    bound = (value if value is not None else 0.0) - BOUND_MARGIN_KMS
     stats = {
-        "lp_plain_bound_kms": plain - BOUND_MARGIN_KMS,
-        "lp_cut_bound_kms": float(result.fun) - BOUND_MARGIN_KMS,
+        "lp_plain_bound_kms": (plain if plain is not None else 0.0) - BOUND_MARGIN_KMS,
+        "lp_cut_bound_kms": bound,
         "cut_rounds": rounds,
         "cuts": len(model.cuts),
         "lp_seconds": time.perf_counter() - t0,
+        "lp_stopped": stopped,
     }
-    return float(result.fun) - BOUND_MARGIN_KMS, model, stats
+    return bound, model, stats
 
 
 def _is_integral(values: np.ndarray, tol: float = 1e-6) -> bool:
@@ -352,7 +366,11 @@ class HiGHSSolver:
             "deterministic": True,
         }
         values = result.x
-        if values is None and _is_integral(model.solution[: model.nx]):
+        if (
+            values is None
+            and model.solution is not None
+            and _is_integral(model.solution[: model.nx])
+        ):
             # The cut LP landed on a permutation: it is optimal outright, and
             # branch-and-bound had nothing left to do but ran out of clock.
             values = model.solution

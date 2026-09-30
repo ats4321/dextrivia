@@ -61,9 +61,11 @@ __all__ = ["CPSATSolver", "COST_SCALE", "CPSAT_MAX_N"]
 COST_SCALE = 1_000_000
 
 #: ~N**3 booleans: 7220 at N=20, 56k at N=40, 205k at N=60. Not a
-#: correctness wall, a model-build-time and memory one -- measured in
-#: docs/bounds.md before it was moved.
-CPSAT_MAX_N = 40
+#: correctness wall, a memory and bound-quality one. Measured
+#: (docs/data/bounds_study.json, 60 s): N=50 static proved optimal at 2.8 GB
+#: peak; N=60 static needed 4.3 GB and left a 20% gap where highs left 7.7%
+#: on 1.1 GB. So 50, and highs covers N=60.
+CPSAT_MAX_N = 50
 
 
 def _infeasible(name: str, reason: str, t0: float, **metadata: Any) -> Solution:
@@ -150,12 +152,13 @@ class CPSATSolver:
             # time-indexed relaxation lacks on its own.
             depot = n
             arcs = []
+            z_vars: dict[tuple[int, int], Any] = {}
             for i in range(n):
                 arcs.append((depot, i, x[i, 0]))
                 arcs.append((i, depot, x[i, n - 1]))
                 for j in range(n):
                     if i != j:
-                        z = model.NewBoolVar(f"z_{i}_{j}")
+                        z = z_vars[i, j] = model.NewBoolVar(f"z_{i}_{j}")
                         model.Add(z == sum(y[i, j, p] for p in range(n - 1)))
                         arcs.append((i, j, z))
             model.AddCircuit(arcs)
@@ -170,6 +173,11 @@ class CPSATSolver:
                 model.AddHint(var, position[i] == p)
             for (i, j, p), var in y.items():
                 model.AddHint(var, position[i] == p and position[j] == p + 1)
+            # Hint the circuit's arcs too: CP-SAT is only guaranteed to load a
+            # hint as its first solution when the hint is complete.
+            if self.circuit:
+                for (i, j), var in z_vars.items():
+                    model.AddHint(var, position[j] == position[i] + 1)
 
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = self.time_limit_s
