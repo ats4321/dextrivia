@@ -254,3 +254,30 @@ def test_pinned_n30_april_40deg_window_greedy_is_provably_optimal():
     order = np.argsort(raan)
     raan_cost = min(instance.path_cost(order), instance.path_cost(order[::-1]))
     assert raan_cost / greedy - 1 == pytest.approx(0.0132, abs=0.001)
+
+
+@needs_scipy
+def test_static_v2_is_one_dimensional_raan_order_meets_the_certified_bound():
+    """Locks docs/physics.md section 11, as test_degeneracy.py locks the altitude case.
+
+    Visiting v2 n20_static in RAAN order -- a sort -- is provably optimal. If a
+    cost-model change ever breaks this, the finding needs rewriting, not the test
+    deleting.
+    """
+    from dextrivia.costs.realistic import mean_elements
+    from dextrivia.solvers.highs_mip import lp_lower_bound
+
+    path = INSTANCES / "planecluster-v2" / "iridium33_20260928_planecluster-v2_n20_static.npz"
+    instance = ProblemInstance.load(path)
+    snapshot = Snapshot.load(default_snapshot_dir() / instance.metadata["snapshot"])
+    by_id = {o.norad_id: o for o in snapshot.objects}
+    raan = np.unwrap(
+        [
+            mean_elements(by_id[i].line1, by_id[i].line2, instance.epoch).raan_rad
+            for i in instance.norad_ids
+        ]
+    )
+    order = np.argsort(raan)
+    raan_cost = min(instance.path_cost(order), instance.path_cost(order[::-1]))
+    bound, _, _ = lp_lower_bound(instance)
+    assert raan_cost - bound < 1e-5
