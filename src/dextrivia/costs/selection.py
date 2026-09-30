@@ -38,6 +38,7 @@ foundation-owned. Nothing in ``core.py`` changes; this just populates the same
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -45,6 +46,7 @@ import numpy as np
 
 from dextrivia.core import CostModel, DebrisObject, ProblemInstance
 from dextrivia.costs.realistic import mean_elements, plane_angle
+from dextrivia.costs.validity import horizon_metadata, mission_times, screen_decay
 from dextrivia.propagation import R_EARTH_WGS72_KM
 from dextrivia.snapshots import Snapshot
 
@@ -54,6 +56,8 @@ __all__ = [
     "ClusterSelection",
     "select_plane_cluster",
     "build_cluster_instance",
+    "family_name",
+    "family_path",
 ]
 
 PLANE_CLUSTER_RULE = "plane-cluster"
@@ -92,6 +96,8 @@ class ClusterSelection:
     window: ClusterWindow
     max_plane_angle_deg: float
     altitude_span_km: float
+    #: Objects SGP4 could not propagate to every mission time; see ``screen_decay``.
+    excluded_decayed: tuple[dict[str, object], ...] = ()
 
     def as_metadata(self) -> dict[str, object]:
         return {
@@ -101,6 +107,7 @@ class ClusterSelection:
             "cluster_seed_norad": self.seed_norad,
             "cluster_max_plane_angle_deg": round(self.max_plane_angle_deg, 4),
             "cluster_altitude_span_km": round(self.altitude_span_km, 3),
+            "excluded_decayed": list(self.excluded_decayed),
             **self.window.as_metadata(),
         }
 
@@ -116,17 +123,25 @@ def select_plane_cluster(
     epoch: datetime | None = None,
     window: ClusterWindow | None = None,
     seed_norad: int | None = None,
+    times: Iterable[datetime] | None = None,
 ) -> ClusterSelection:
     """Pick ``n`` objects sharing a plane. See the module docstring for the rule.
+
+    ``times`` are every wall-clock time the cost model will propagate to (see
+    ``validity.mission_times``; default: just ``epoch``). Objects SGP4 cannot
+    propagate to all of them are dropped BEFORE the seed is chosen and recorded
+    in ``excluded_decayed`` -- a decayed object must never reach a cost model.
 
     Raises ``ValueError`` if no seed has ``n`` neighbours inside the window --
     silently widening the window would make the recorded rule a lie.
     """
     window = window or ClusterWindow()
     epoch = epoch or snapshot.median_epoch()
-    objects = snapshot.objects
-    if not 2 <= n <= len(objects):
-        raise ValueError(f"n must be in 2..{len(objects)}, got {n}")
+    if not 2 <= n <= len(snapshot.objects):
+        raise ValueError(f"n must be in 2..{len(snapshot.objects)}, got {n}")
+    objects, excluded = screen_decay(snapshot.objects, [epoch, *(times or ())])
+    if n > len(objects):
+        raise ValueError(f"only {len(objects)} objects survive the decay screen, need {n}")
 
     elements = [mean_elements(o.line1, o.line2, epoch) for o in objects]
     norad = np.array([o.norad_id for o in objects])
@@ -157,7 +172,10 @@ def select_plane_cluster(
     if seed_norad is not None:
         matches = np.flatnonzero(norad == seed_norad)
         if matches.size == 0:
-            raise ValueError(f"seed NORAD id {seed_norad} is not in {snapshot.path.name}")
+            raise ValueError(
+                f"seed NORAD id {seed_norad} is not in {snapshot.path.name} "
+                "or did not survive the decay screen"
+            )
         seed = int(matches[0])
     else:
         counts = inside.sum(axis=1)
@@ -180,6 +198,7 @@ def select_plane_cluster(
         window=window,
         max_plane_angle_deg=float(theta_deg[np.ix_(chosen, chosen)].max()),
         altitude_span_km=float(alt[chosen].max() - alt[chosen].min()),
+        excluded_decayed=excluded,
     )
 
 
@@ -196,9 +215,17 @@ def build_cluster_instance(
 
     Metadata carries everything needed to rebuild the exact same array: snapshot
     filename, selection rule and window, epoch source, cost model name, and (for
-    time-slotted costs) the per-leg duration and the leg-to-wall-clock mapping.
+    time-slotted costs) the per-leg duration and the leg-to-wall-clock mapping,
+    plus the propagation span against the validity horizon (a
+    ``PropagationHorizonWarning`` if it is exceeded) and any decayed exclusions.
     """
-    selection = select_plane_cluster(snapshot, n, epoch=epoch, window=window, seed_norad=seed_norad)
+    epoch_source = "snapshot-median-tle-epoch" if epoch is None else "caller"
+    epoch = epoch or snapshot.median_epoch()
+    times = mission_times(cost_model, epoch, n)
+    selection = select_plane_cluster(
+        snapshot, n, epoch=epoch, window=window, seed_norad=seed_norad, times=times
+    )
+    horizon = horizon_metadata(selection.objects, times, label=f"{snapshot.path.name} n={n}")
     costs = cost_model.build(selection.objects, selection.epoch)
     provenance = (
         cost_model.provenance()
@@ -211,9 +238,10 @@ def build_cluster_instance(
             snapshot.fetched_utc.isoformat() if snapshot.fetched_utc else None
         ),
         "snapshot_size": len(snapshot),
-        "epoch_source": "snapshot-median-tle-epoch" if epoch is None else "caller",
+        "epoch_source": epoch_source,
         **selection.as_metadata(),
         **provenance,
+        **horizon,
     }
     if family_version is not None:
         metadata["family_version"] = family_version
@@ -224,3 +252,19 @@ def build_cluster_instance(
         costs=costs,
         metadata=metadata,
     )
+
+
+def family_name(snapshot_stem: str, n: int, delta_days: float | None, version: str) -> str:
+    """``<snapshot-stem>_planecluster-<version>_n<N>_<static|td<delta>d>.npz``."""
+    variant = "static" if delta_days is None else f"td{delta_days:g}d"
+    return f"{snapshot_stem}_planecluster-{version}_n{n}_{variant}.npz"
+
+
+def family_path(instance_dir, snapshot_stem: str, n: int, delta: float | None, version: str):
+    """Where a family file lives. v1 sits flat in ``instance_dir``, where the README's
+    canonical benchmark run found it; later versions get a subdirectory so
+    ``dextrivia bench``'s flat ``*.npz`` glob and short labels do not mix them up."""
+    from pathlib import Path
+
+    base = Path(instance_dir) if version == "v1" else Path(instance_dir) / f"planecluster-{version}"
+    return base / family_name(snapshot_stem, n, delta, version)

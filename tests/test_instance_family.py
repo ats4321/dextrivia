@@ -14,12 +14,15 @@ today. Regenerate with ``scripts/build_instance_family.py``.
 
 from __future__ import annotations
 
+import contextlib
+
 import numpy as np
 import pytest
 
 from dextrivia.core import ProblemInstance
 from dextrivia.costs.realistic import ImpulsiveCostModel, mean_elements
 from dextrivia.costs.selection import build_cluster_instance
+from dextrivia.costs.validity import PropagationHorizonWarning
 from dextrivia.snapshots import default_snapshot_dir
 from dextrivia.solvers import ExactSolver, GreedySolver
 from dextrivia.solvers.exact import HELD_KARP_MAX_N
@@ -97,9 +100,12 @@ def test_provenance_is_complete_enough_to_rebuild_the_array(name, family):
 def test_the_committed_arrays_still_match_what_the_generator_produces(snapshot, family):
     """Guards against a silent physics change orphaning the committed numbers."""
     for delta, suffix in ((None, "static"), (FAMILY_DELTA_DAYS, "td30d")):
-        rebuilt = build_cluster_instance(
-            snapshot, 8, ImpulsiveCostModel(delta_per_leg_days=delta), family_version="v1"
-        )
+        # n8_td30d propagates 183 d, past the validity horizon; saying so is correct.
+        expect = pytest.warns(PropagationHorizonWarning) if delta else contextlib.nullcontext()
+        with expect:
+            rebuilt = build_cluster_instance(
+                snapshot, 8, ImpulsiveCostModel(delta_per_leg_days=delta), family_version="v1"
+            )
         committed = family[f"{FAMILY_PREFIX}_n8_{suffix}.npz"]
         assert rebuilt.norad_ids == committed.norad_ids
         np.testing.assert_allclose(rebuilt.costs, committed.costs, rtol=1e-12)

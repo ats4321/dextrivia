@@ -425,6 +425,17 @@ A quick run, for checking the harness rather than reproducing the numbers:
 uv run dextrivia bench --instances n4 --solvers greedy,exact,cpsat --seeds 1 --no-penalty-study
 ```
 
+The degenerate altitude-only baseline from "Why the first version of this
+project was wrong", point 3. The snapshot is pinned: `dextrivia build` without
+`--snapshot` takes the newest one, which would change the number.
+`tests/test_readme_example.py` runs this block and checks the quoted output.
+
+```bash
+uv run dextrivia build --snapshot data/snapshots/iridium33_20260402.json --n 10
+uv run dextrivia solve --instance data/instances/iridium33_20260402_n10_first.npz --solver exact
+# total dv   0.126246 km/s
+```
+
 Tests, lint and format:
 
 ```bash

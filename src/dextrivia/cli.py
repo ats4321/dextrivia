@@ -12,6 +12,8 @@ from pathlib import Path
 
 from dextrivia import bench as bench_module
 from dextrivia.core import ProblemInstance
+from dextrivia.costs import COST_MODELS, ClusterWindow, HohmannCostModel
+from dextrivia.costs.selection import PLANE_CLUSTER_RULE, build_cluster_instance, family_path
 from dextrivia.instances import build_instance
 from dextrivia.snapshots import (
     DEFAULT_GROUP,
@@ -70,25 +72,83 @@ def _cmd_fetch(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cost_model(args: argparse.Namespace):
+    if args.cost_model == HohmannCostModel.name:
+        if args.delta_days is not None:
+            raise ValueError("--delta-days needs a plane-aware cost model; hohmann is static")
+        return HohmannCostModel()
+    return COST_MODELS[args.cost_model](delta_per_leg_days=args.delta_days)
+
+
+def _default_out(args: argparse.Namespace, snapshot_path: Path, cost_model) -> Path:
+    if args.select == PLANE_CLUSTER_RULE and args.family_version:
+        if args.cost_model != "impulsive-plane":
+            raise ValueError("--family-version names the impulsive family; pass --out instead")
+        return family_path(
+            default_instance_dir(), snapshot_path.stem, args.n, args.delta_days, args.family_version
+        )
+    if args.select == PLANE_CLUSTER_RULE:
+        name = f"{snapshot_path.stem}_n{args.n}_{PLANE_CLUSTER_RULE}_{cost_model.name}.npz"
+        return default_instance_dir() / name
+    suffix = f"_seed{args.seed}" if args.seed is not None else ""
+    return default_instance_dir() / f"{snapshot_path.stem}_n{args.n}_{args.select}{suffix}.npz"
+
+
 def _cmd_build(args: argparse.Namespace) -> int:
     snapshot_path = Path(args.snapshot) if args.snapshot else latest_snapshot()
     snapshot = Snapshot.load(snapshot_path)
     epoch = datetime.fromisoformat(args.epoch) if args.epoch else None
-    instance = build_instance(snapshot, n=args.n, rule=args.select, seed=args.seed, epoch=epoch)
+    if epoch is not None and epoch.tzinfo is None:
+        raise ValueError("--epoch must carry a UTC offset, e.g. 2026-04-02T07:05:22+00:00")
+    cost_model = _cost_model(args)
 
-    if args.out:
-        out = Path(args.out)
+    if args.select == PLANE_CLUSTER_RULE:
+        window = ClusterWindow(
+            raan_window_deg=args.raan_window,
+            inc_window_deg=args.inc_window,
+            alt_band_km=args.alt_band,
+        )
+        instance = build_cluster_instance(
+            snapshot,
+            args.n,
+            cost_model,
+            epoch=epoch,
+            window=window,
+            seed_norad=args.seed_norad,
+            family_version=args.family_version,
+        )
     else:
-        suffix = f"_seed{args.seed}" if args.seed is not None else ""
-        out = default_instance_dir() / (f"{snapshot_path.stem}_n{args.n}_{args.select}{suffix}.npz")
+        if args.delta_days is not None or args.cost_model != HohmannCostModel.name:
+            raise ValueError(f"--select {args.select} builds hohmann costs only; use plane-cluster")
+        instance = build_instance(snapshot, n=args.n, rule=args.select, seed=args.seed, epoch=epoch)
+
+    out = Path(args.out) if args.out else _default_out(args, snapshot_path, cost_model)
+    out.parent.mkdir(parents=True, exist_ok=True)
     out = instance.save(out)
 
     print(f"wrote {out}")
     print(f"  snapshot   {snapshot_path.name} ({len(snapshot)} objects)")
-    print(f"  selection  {args.select} n={args.n} seed={args.seed}")
+    if args.select == PLANE_CLUSTER_RULE:
+        meta = instance.metadata
+        print(
+            f"  selection  {args.select} n={args.n} seed_norad={meta['cluster_seed_norad']} "
+            f"raan<={meta['raan_window_deg']:g} inc<={meta['inc_window_deg']:g} "
+            f"alt<={meta['alt_band_km']:g}km"
+        )
+    else:
+        print(f"  selection  {args.select} n={args.n} seed={args.seed}")
     print(f"  epoch      {instance.epoch.isoformat()} ({instance.metadata['epoch_source']})")
     print(f"  cost model {instance.metadata['cost_model']}, costs {instance.costs.shape}")
     print(f"  norad ids  {', '.join(str(i) for i in instance.norad_ids)}")
+    meta = instance.metadata
+    for record in meta.get("excluded_decayed", ()):
+        norad, error, at = record["norad_id"], record["sgp4_error"], record["at"]
+        print(f"  excluded   {norad} (SGP4 error {error} at {at})")
+    status = "EXCEEDS" if meta["exceeds_validity_horizon"] else "within"
+    print(
+        f"  horizon    propagates {meta['propagation_span_days']:.1f} d from TLE epochs, "
+        f"{status} the {meta['validity_horizon_days']:g}-day validity horizon"
+    )
     return 0
 
 
@@ -130,10 +190,33 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"default: newest {DEFAULT_GROUP} snapshot in data/snapshots",
     )
     build.add_argument("--n", type=int, default=10, help="number of objects (default 10)")
-    build.add_argument("--select", choices=SELECTION_RULES, default="first")
+    build.add_argument("--select", choices=(*SELECTION_RULES, PLANE_CLUSTER_RULE), default="first")
     build.add_argument("--seed", type=int, default=None, help="required for --select random")
     build.add_argument("--epoch", default=None, help="ISO UTC; default snapshot median TLE epoch")
     build.add_argument("--out", default=None, help="output .npz path")
+    build.add_argument(
+        "--cost-model",
+        choices=sorted(COST_MODELS),
+        default=HohmannCostModel.name,
+        help="default hohmann; impulsive-plane and edelbaum need --select plane-cluster",
+    )
+    build.add_argument(
+        "--delta-days",
+        type=float,
+        default=None,
+        help="per-leg duration; makes costs time-slotted C[t,i,j] (default: static)",
+    )
+    defaults = ClusterWindow()
+    cluster = build.add_argument_group("plane-cluster window (docs/physics.md section 6)")
+    cluster.add_argument("--raan-window", type=float, default=defaults.raan_window_deg)
+    cluster.add_argument("--inc-window", type=float, default=defaults.inc_window_deg)
+    cluster.add_argument("--alt-band", type=float, default=defaults.alt_band_km)
+    cluster.add_argument("--seed-norad", type=int, default=None, help="pin the cluster seed")
+    cluster.add_argument(
+        "--family-version",
+        default=None,
+        help="record a family version and use the family filename, e.g. v2",
+    )
     build.set_defaults(func=_cmd_build)
 
     solve = sub.add_parser("solve", help="solve a built instance")
