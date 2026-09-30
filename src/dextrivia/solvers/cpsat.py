@@ -33,7 +33,17 @@ N-1 legs, not N. There is no wrap-around term and no depot.
 
 CP-SAT is integral, so costs are scaled to integers. The delta-v that gets
 REPORTED is recomputed from the unrounded instance, so the rounding only ever
-costs search quality -- never accuracy of the number.
+costs search quality -- never accuracy of the number. The BOUND is another
+matter: it is a bound on the rounded problem, and each of the N-1 rounded legs
+can sit up to half a scale unit above its true cost. ``lower_bound_kms``
+therefore subtracts ``(N-1) * 0.5 / COST_SCALE`` to stay a bound on the real
+problem; the unadjusted value is kept as ``raw_bound_kms``.
+
+Warm start: the model is hinted with the ``localsearch`` sequence
+(``AddHint``). Without it, a 30 s run at N=30 was measured returning a path
+more than three times worse than greedy. The hint is a starting point, not a
+constraint -- CP-SAT may still find something better. Whether the result
+at least matches the hint is recorded in ``beats_or_ties_hint``.
 """
 
 from __future__ import annotations
@@ -50,8 +60,9 @@ __all__ = ["CPSATSolver", "COST_SCALE", "CPSAT_MAX_N"]
 #: km/s -> mm/s, as in ``ortools_routing``. int64 has ample room at N=20.
 COST_SCALE = 1_000_000
 
-#: ~N**3 booleans: 7220 at N=20, 56k at N=40. Not a correctness wall, a
-#: model-build-time one. Raise it deliberately.
+#: ~N**3 booleans: 7220 at N=20, 56k at N=40, 205k at N=60. Not a
+#: correctness wall, a model-build-time and memory one -- measured in
+#: docs/bounds.md before it was moved.
 CPSAT_MAX_N = 40
 
 
@@ -83,10 +94,14 @@ class CPSATSolver:
         time_limit_s: float = 60.0,
         workers: int = 8,
         max_n: int = CPSAT_MAX_N,
+        warm_start: bool = True,
+        circuit: bool = True,
     ) -> None:
         self.time_limit_s = float(time_limit_s)
         self.workers = int(workers)
         self.max_n = int(max_n)
+        self.warm_start = bool(warm_start)
+        self.circuit = bool(circuit)
 
     def solve(self, instance: ProblemInstance, seed: int | None = None) -> Solution:
         t0 = time.perf_counter()
@@ -127,6 +142,35 @@ class CPSATSolver:
 
         model.Minimize(sum(objective))
 
+        if self.circuit:
+            # Redundant, and the reason the bound is worth reading. Summing legs
+            # over positions gives an arc z[i,j]; closing the path through a
+            # depot (d -> first, last -> d) makes those arcs one Hamiltonian
+            # circuit. AddCircuit hands CP-SAT's LP the subtour cuts that the
+            # time-indexed relaxation lacks on its own.
+            depot = n
+            arcs = []
+            for i in range(n):
+                arcs.append((depot, i, x[i, 0]))
+                arcs.append((i, depot, x[i, n - 1]))
+                for j in range(n):
+                    if i != j:
+                        z = model.NewBoolVar(f"z_{i}_{j}")
+                        model.Add(z == sum(y[i, j, p] for p in range(n - 1)))
+                        arcs.append((i, j, z))
+            model.AddCircuit(arcs)
+
+        hint = None
+        if self.warm_start:
+            from dextrivia.solvers.permutation import LocalSearchSolver
+
+            hint = LocalSearchSolver().solve(instance)
+            position = {obj: p for p, obj in enumerate(hint.sequence)}
+            for (i, p), var in x.items():
+                model.AddHint(var, position[i] == p)
+            for (i, j, p), var in y.items():
+                model.AddHint(var, position[i] == p and position[j] == p + 1)
+
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = self.time_limit_s
         solver.parameters.num_workers = self.workers
@@ -146,13 +190,13 @@ class CPSATSolver:
         for p in range(n):
             sequence.append(next(i for i in range(n) if solver.Value(x[i, p])))
 
-        bound_kms = solver.BestObjectiveBound() / COST_SCALE
+        raw_bound_kms = solver.BestObjectiveBound() / COST_SCALE
+        bound_kms = raw_bound_kms - (n - 1) * 0.5 / COST_SCALE
         # Report the cost of the sequence under the real (unrounded) costs.
         total = instance.path_cost(sequence)
-        # The bound is computed on the rounded integer costs and the total is
-        # not, so at a proven optimum the two can cross by up to half a scale
-        # unit and produce a nonsensical negative gap. Clamp, and keep the raw
-        # bound in the metadata so the crossing stays visible if it ever grows.
+        # With the rounding margin subtracted the bound cannot exceed the true
+        # optimum, but clamp anyway: a negative gap would be a bug to surface,
+        # not a number to print.
         gap = max(0.0, (total - bound_kms) / total) if total > 0 else 0.0
 
         return Solution(
@@ -165,6 +209,15 @@ class CPSATSolver:
                 "proven_optimal": status == cp_model.OPTIMAL,
                 "status": solver.StatusName(status),
                 "lower_bound_kms": bound_kms,
+                "raw_bound_kms": raw_bound_kms,
+                "bound_certification": (
+                    "CP-SAT best objective bound on mm/s-rounded costs, minus "
+                    "(N-1)*0.5 mm/s rounding margin"
+                ),
+                "warm_start": "localsearch" if hint else None,
+                "circuit_constraint": self.circuit,
+                "hint_dv_kms": hint.total_dv_kms if hint else None,
+                "beats_or_ties_hint": (bool(total <= hint.total_dv_kms + 1e-9) if hint else None),
                 "gap": gap,
                 "scaled_objective": int(solver.ObjectiveValue()),
                 "cost_scale": COST_SCALE,
