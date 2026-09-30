@@ -1,0 +1,90 @@
+{
+  "old_snapshot": "iridium33_20260402.json",
+  "measurement": "single horizon, two snapshots; not an error-vs-time curve",
+  "objects_compared": 106,
+  "span_days": {
+    "min": 164.31606025998843,
+    "median": 177.5232195100058,
+    "max": 197.14960304998846
+  },
+  "elements": {
+    "raan_err_deg": {
+      "unit": "deg",
+      "mean_signed": -0.016810798704419348,
+      "median_abs": 0.0923472238238503,
+      "p90_abs": 0.3005026921904488,
+      "max_abs": 0.743914301105093,
+      "worst_norad": 33960,
+      "median_abs_per_day_if_linear": 0.0005201980004573165,
+      "p90_abs_per_30d_if_linear": 0.05078254433756112
+    },
+    "inc_err_deg": {
+      "unit": "deg",
+      "mean_signed": 0.004040566037735075,
+      "median_abs": 0.00720000000000286,
+      "p90_abs": 0.01114999999999829,
+      "max_abs": 0.02749999999999829,
+      "worst_norad": 35622,
+      "median_abs_per_day_if_linear": 4.055807471200715e-05,
+      "p90_abs_per_30d_if_linear": 0.0018842605543276279
+    },
+    "sma_err_km": {
+      "unit": "km",
+      "mean_signed": -5.321800840563784,
+      "median_abs": 2.2611347860647584,
+      "p90_abs": 17.78175452078949,
+      "max_abs": 53.26003943028627,
+      "worst_norad": 35622,
+      "median_abs_per_day_if_linear": 0.01273712133154116,
+      "p90_abs_per_30d_if_linear": 3.004973868185269
+    }
+  },
+  "pairs": {
+    "count": 1251,
+    "cluster_angle_deg": 20.0,
+    "median_leg_kms": 1.298532231308859,
+    "angle_err_deg": {
+      "median": 0.04465274743082243,
+      "p90": 0.300819582888873
+    },
+    "dv_err_kms": {
+      "median": 0.005738042829806833,
+      "p90": 0.0373172847763934,
+      "max": 0.1337062423865496
+    }
+  },
+  "horizon": {
+    "measured_span_days": 177.5232195100058,
+    "tolerance_kms": 0.06492661156544295,
+    "error_at_span_kms": 0.0373172847763934,
+    "horizon_days": 177.0
+  },
+  "only_in_old": [
+    {
+      "norad_id": 35080,
+      "satcat_decay_date": "2026-07-10",
+      "sgp4_decay_day_after_old_epoch": 219,
+      "sgp4_decay_date": "2026-11-07"
+    }
+  ],
+  "only_in_new": [
+    {
+      "norad_id": 35625,
+      "satcat_decay_date": null
+    },
+    {
+      "norad_id": 37136,
+      "satcat_decay_date": null
+    },
+    {
+      "norad_id": 38477,
+      "satcat_decay_date": null
+    },
+    {
+      "norad_id": 46979,
+      "satcat_decay_date": null
+    }
+  ],
+  "sgp4_failed": [],
+  "new_snapshot": "iridium33_20260928.json"
+}

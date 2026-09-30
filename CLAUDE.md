@@ -148,6 +148,28 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
   for future solver authors is that the position-in-sequence slot index makes
   2-opt **O(N) rather than O(1)** under time-slotted costs — see the QUBO
   section below.
+* 2026-09-28 — propagation validity horizon and v2 family (physics workspace,
+  which for this change also held `snapshots.py`, `instances.py`, `cli.py`
+  and `data/`). **No change to `core.py`.** Every new fact rides in `metadata`.
+  Additive changes to the other files:
+  * `dextrivia build` gained `--select plane-cluster`, `--cost-model`,
+    `--delta-days`, `--raan-window`, `--inc-window`, `--alt-band`,
+    `--seed-norad` and `--family-version`. The defaults are unchanged:
+    `first`, `hohmann-coplanar`, static. This supersedes the 2026-09-23
+    note: `plane-cluster` is now a CLI rule, dispatched to
+    `build_cluster_instance`. It is still **not** a `Snapshot.select` rule,
+    because it needs propagated elements.
+  * New metadata keys on every freshly built instance:
+    `propagation_span_days`, `validity_horizon_days`,
+    `validity_horizon_source` and `exceeds_validity_horizon`. Plane-cluster
+    instances also carry `excluded_decayed`. Old files lack them; use
+    `costs.validity.check_instance`.
+  * `select_plane_cluster(..., times=...)` screens out objects SGP4 cannot
+    propagate. The `ClusterSelection` dataclass gained an
+    `excluded_decayed` field with a default.
+  * A second snapshot, `iridium33_20260928.json`, is now the `dextrivia build`
+    default. Every quoted CLI example pins `--snapshot`, and
+    `tests/test_readme_example.py` runs the README's.
 
 ## Benchmark
 
@@ -219,7 +241,7 @@ uv sync --all-extras
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 
-uv run dextrivia build --n 10
+uv run dextrivia build --snapshot data/snapshots/iridium33_20260402.json --n 10
 uv run dextrivia solve --instance data/instances/iridium33_20260402_n10_first.npz --solver exact
 ```
 
@@ -233,8 +255,10 @@ Owned by the physics workspace. Full write-up: **`docs/physics.md`**.
 |---|---|
 | `costs/hohmann.py` | altitude-only baseline. Unchanged, still the default for `dextrivia build`, still degenerate on purpose. |
 | `costs/realistic.py` | `ImpulsiveCostModel` (Hohmann + optimally split plane change) and `EdelbaumCostModel` (low-thrust), plus `plane_angle`, `nodal_precession_deg_per_day`, `mean_elements`. |
-| `costs/selection.py` | `plane-cluster` target selection + `build_cluster_instance`. |
-| `scripts/build_instance_family.py` | regenerates the committed instance family and prints the greedy/exact gap table. |
+| `costs/selection.py` | `plane-cluster` target selection + `build_cluster_instance`, decay screen applied before the seed is chosen. `family_name` / `family_path`. |
+| `costs/validity.py` | `VALIDITY_HORIZON_DAYS`, `screen_decay`, `horizon_metadata`, `check_instance`, `compare_snapshots`, `PropagationHorizonWarning`. |
+| `scripts/build_instance_family.py` | `--version v2` (default) or `v1`: regenerates a family, prints the CLI command for each file and the gap table. |
+| `scripts/validate_propagation.py` | April snapshot propagated against the September one → `data/validation/*.json`, `docs/figures/propagation_validation.png`. |
 | `scripts/plot_cloud.py` | `docs/figures/raan_altitude.png`. Needs the `physics` extra (matplotlib). |
 
 ### Facts that drive every design choice here
@@ -285,6 +309,60 @@ Headline, from `scripts/build_instance_family.py`:
 * **Time dependence is what breaks greedy**: +5.37% at N=8, +5.18% at N=15.
   That is the headroom available to a quantum / quantum-inspired solver.
 * N=20 is past the Held-Karp limit and records a miss, by design.
+* **v1 is frozen and partly past the validity horizon**: `n8/n10/n15/n20_td30d`
+  propagate 183–545 days, against a 177-day horizon. They are kept
+  byte-identical (sha256 pinned in `tests/test_propagation_validity.py`)
+  because the README's canonical run cites them. Do not regenerate them in
+  place.
+
+### Propagation validity horizon (docs/physics.md §9)
+
+* **`VALIDITY_HORIZON_DAYS = 177`, measured, not assumed.** It comes from
+  propagating the April snapshot against the real September TLEs. **This is a
+  single-horizon measurement (two snapshots), not an error-vs-time curve.** The
+  TLE fit-noise floor is unmeasured, so some of the "error" may be fit noise.
+  Say so wherever the number is quoted.
+* **The rule, pre-registered:** the 90th-percentile in-cluster leg-cost error
+  must stay ≤ 5% of the median in-cluster leg. Scale linearly down from the
+  measured span and cap at it. Measured: 37 m/s against a 65 m/s tolerance, so
+  the cap binds. A test recomputes it from the two committed snapshots.
+* **Element error at ~177 days, p90:** RAAN 0.30°, inclination 0.011°, mean
+  SMA 17.8 km. Per 30 days, if linear: 0.051°, 0.0019° and 3.0 km, i.e.
+  ≲ 7 m/s of leg cost.
+* **The error is drag, below ~650 km.** Pairs involving such an object have a
+  p90 of 89 m/s, already over tolerance at the measured span (about 129 days
+  when scaled). The horizon is a population statement; do not quote it as
+  valid for every object.
+* **What 30-day legs mean now:** the span is `(N−2)·Δ + TLE age`, so Δ = 30 d
+  fits only up to N ≈ 7.
+* **SGP4 is late about decay.** 35080 re-entered on 2026-07-10 (SATCAT); SGP4
+  gave up on it 120 days later. Decayed objects are screened out at selection
+  time and recorded in `excluded_decayed`, never allowed to crash
+  `mean_elements`.
+* **Every new instance records its span.** An instance past the horizon gets
+  `exceeds_validity_horizon=True` and emits `PropagationHorizonWarning`.
+  Don't silence the warning; either flag it or stay inside the horizon.
+
+### The v2 instance family (docs/physics.md §10)
+
+`data/instances/planecluster-v2/iridium33_20260928_planecluster-v2_n{N}_{static,td{Δ}d}.npz`
+has 31 files. It lives in a **subdirectory on purpose**: `dextrivia bench` globs
+`data/instances/*.npz` non-recursively, and its short labels (`n8_td30d`) would
+collide with v1's.
+
+* N ∈ {4, 5, 8, 10, 15, 20} use v1's window. N ∈ {25, 30, 40} use a 20° RAAN
+  window, the smallest in {15, 20, 25, 30}° that holds 40 objects (chosen by
+  count, never by Δv).
+* Δ ∈ {3, 7, 14, 30} days, each kept only where the span fits the horizon.
+  7 d is one full phasing cycle at a 50 km altitude difference (6.5 d).
+* Every file can be rebuilt with `dextrivia build --select plane-cluster ...`;
+  the script prints the exact command, and tests rebuild three of them.
+* **Headline:** greedy misses the reference on 10 instances, by up to +4.66%.
+  localsearch ties wherever an exact oracle exists (N ≤ 15), so small N still
+  has no headroom. N = 25–40 exist so a later workspace can find out whether
+  anything beats localsearch where no oracle can check.
+* Low-altitude legs in `n20_td7d`, `n25_td7d` and `n40_td3d` are the
+  least-validated numbers in v2.
 
 ## QUBO
 

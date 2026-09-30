@@ -1,48 +1,97 @@
-"""Generate the versioned plane-cluster instance family into ``data/instances/``.
+"""Generate a versioned plane-cluster instance family.
 
-    uv run python scripts/build_instance_family.py            # build + report
-    uv run python scripts/build_instance_family.py --check    # rebuild nothing, just report
+    uv run python scripts/build_instance_family.py                 # v2: build + report
+    uv run python scripts/build_instance_family.py --version v1    # rebuild v1 (costs to ~1e-12)
+    uv run python scripts/build_instance_family.py --check         # report on files on disk
 
-One file per (N, time-variant) pair, named::
+File names::
 
     <snapshot-stem>_planecluster-<version>_n<N>_<static|td<delta>d>.npz
 
-Every file records the snapshot filename, the selection rule and its window,
-the epoch, the cost model and -- for the time-slotted ones -- the per-leg
-duration and the leg-to-wall-clock mapping. The gap table this prints is the
-benchmark headline: greedy against the Held-Karp optimum, plus what a servicer
-would pay by simply visiting in altitude order (the strategy that was optimal
-under the old coplanar cost model).
+v1 lives flat in ``data/instances/`` (the README's canonical run cites it); v2
+lives in ``data/instances/planecluster-v2/`` so ``dextrivia bench`` does not mix
+the two. Every file is also reproducible from the CLI -- the command is printed
+next to each one.
+
+v1 (frozen): ``iridium33_20260402``, N in {4,5,8,10,15,20}, static and 30 d
+per leg. Four of its time-dependent instances propagate beyond the validity
+horizon; they stay committed unchanged for the README's reproducibility.
+
+v2: the fresh snapshot, and every time-dependent instance inside the
+``VALIDITY_HORIZON_DAYS`` (see ``docs/physics.md`` section 9-10):
+
+* Per-leg durations {3, 7, 14, 30} days, each kept for an N only if its
+  propagation span stays inside the horizon. 7 d covers one full phasing cycle
+  at a 50 km altitude difference (~6.5 d, section 10); 3 d is an aggressive
+  schedule, 14 and 30 d relaxed ones.
+* N in {25, 30, 40} use the smallest RAAN window in {15, 20, 25, 30} deg in
+  which the densest seed holds 40 objects -- chosen by object COUNT, never by
+  delta-v or by which solver does well.
 """
 
 from __future__ import annotations
 
 import argparse
+import warnings
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
 from dextrivia.core import ProblemInstance
 from dextrivia.costs.realistic import ImpulsiveCostModel, mean_elements
-from dextrivia.costs.selection import build_cluster_instance
+from dextrivia.costs.selection import (
+    ClusterWindow,
+    build_cluster_instance,
+    family_path,
+    select_plane_cluster,
+)
+from dextrivia.costs.validity import VALIDITY_HORIZON_DAYS, PropagationHorizonWarning
 from dextrivia.snapshots import Snapshot, default_snapshot_dir
-from dextrivia.solvers import ExactSolver, GreedySolver
+from dextrivia.solvers import ExactSolver, GreedySolver, LocalSearchSolver
 
-#: The snapshot the committed family is defined against. Named, not "newest":
-#: a committed benchmark artifact must not change when someone runs `fetch`.
-FAMILY_SNAPSHOT = "iridium33_20260402.json"
-FAMILY_VERSION = "v1"
-FAMILY_SIZES = (4, 5, 8, 10, 15, 20)
-DEFAULT_DELTA_DAYS = 30.0
+LARGE_WINDOW_CANDIDATES_DEG = (15.0, 20.0, 25.0, 30.0)
+
+
+@dataclass(frozen=True)
+class Family:
+    snapshot: str
+    sizes: tuple[int, ...]
+    deltas: tuple[float | None, ...]
+    large_sizes: tuple[int, ...] = ()
+    enforce_horizon: bool = True
+
+
+FAMILIES = {
+    "v1": Family(
+        snapshot="iridium33_20260402.json",
+        sizes=(4, 5, 8, 10, 15, 20),
+        deltas=(None, 30.0),
+        enforce_horizon=False,  # frozen before the horizon existed
+    ),
+    "v2": Family(
+        snapshot="iridium33_20260928.json",
+        sizes=(4, 5, 8, 10, 15, 20, 25, 30, 40),
+        deltas=(None, 3.0, 7.0, 14.0, 30.0),
+        large_sizes=(25, 30, 40),
+    ),
+}
 
 
 def instance_dir() -> Path:
     return default_snapshot_dir().parent / "instances"
 
 
-def family_name(snapshot_stem: str, n: int, delta_days: float | None, version: str) -> str:
-    variant = "static" if delta_days is None else f"td{delta_days:g}d"
-    return f"{snapshot_stem}_planecluster-{version}_n{n}_{variant}.npz"
+def large_window(snapshot: Snapshot, n: int) -> ClusterWindow:
+    """Smallest candidate RAAN window whose densest seed holds ``n`` objects."""
+    for raan in LARGE_WINDOW_CANDIDATES_DEG:
+        window = ClusterWindow(raan_window_deg=raan)
+        try:
+            select_plane_cluster(snapshot, n, window=window)
+        except ValueError:
+            continue
+        return window
+    raise ValueError(f"no candidate window holds {n} objects")
 
 
 def altitude_order(instance: ProblemInstance, snapshot: Snapshot) -> tuple[int, ...]:
@@ -55,52 +104,76 @@ def altitude_order(instance: ProblemInstance, snapshot: Snapshot) -> tuple[int, 
     return tuple(int(i) for i in np.argsort(radii))
 
 
+def slot_drift_pct(instance: ProblemInstance) -> float | None:
+    """Mean |C[last] - C[0]| over pairs, as % of mean C[0]: how time-dependent it really is."""
+    if not instance.time_dependent:
+        return None
+    first, last = instance.leg_costs(0), instance.leg_costs(instance.n - 2)
+    mask = ~np.eye(instance.n, dtype=bool)
+    return float(np.abs(last - first)[mask].mean() / first[mask].mean() * 100.0)
+
+
 def report_row(instance: ProblemInstance, snapshot: Snapshot) -> dict[str, object]:
     greedy = GreedySolver().solve(instance)
+    local = LocalSearchSolver().solve(instance)
     exact = ExactSolver().solve(instance)
-    alt = instance.path_cost(altitude_order(instance, snapshot))
+    meta = instance.metadata
     row: dict[str, object] = {
         "n": instance.n,
-        "variant": "time-dependent" if instance.time_dependent else "static",
+        "delta": meta.get("delta_per_leg_days"),
+        "raan_window": meta.get("raan_window_deg"),
+        "span": meta.get("propagation_span_days"),
+        "drift_pct": slot_drift_pct(instance),
         "greedy": greedy.total_dv_kms,
-        "altitude": alt,
+        "local": local.total_dv_kms,
+        "altitude": instance.path_cost(altitude_order(instance, snapshot)),
         "exact": exact.total_dv_kms if exact.feasible else None,
-        "exact_note": None if exact.feasible else exact.metadata.get("reason"),
-        "runtime_s": exact.runtime_s,
     }
-    if exact.feasible:
-        row["gap_pct"] = (greedy.total_dv_kms - exact.total_dv_kms) / exact.total_dv_kms * 100.0
-        row["alt_excess_pct"] = (alt - exact.total_dv_kms) / exact.total_dv_kms * 100.0
-        row["exact_is_altitude_order"] = exact.sequence in (
-            altitude_order(instance, snapshot),
-            altitude_order(instance, snapshot)[::-1],
-        )
+    reference = row["exact"] if exact.feasible else min(greedy.total_dv_kms, local.total_dv_kms)
+    row["reference_kind"] = "exact" if exact.feasible else "best-known"
+    for key in ("greedy", "local", "altitude"):
+        gap = (row[key] - reference) / reference * 100.0
+        row[f"{key}_gap"] = 0.0 if abs(gap) < 1e-9 else gap  # float summation order
     return row
 
 
 def print_table(rows: list[dict[str, object]]) -> None:
     print()
-    print("| N | variant | exact (km/s) | greedy (km/s) | gap | altitude order (km/s) | vs exact |")
-    print("|---|---------|--------------|---------------|-----|-----------------------|----------|")
+    print(
+        "| N | delta (d) | RAAN window | span (d) | slot drift | reference (km/s) "
+        "| greedy | localsearch | altitude order |"
+    )
+    print("|---|---|---|---|---|---|---|---|---|")
     for r in rows:
-        if r["exact"] is None:
-            exact_cell, gap_cell, alt_cell = f"_{r['exact_note']}_", "-", "-"
-        else:
-            exact_cell = f"{r['exact']:.4f}"
-            gap_cell = f"{r['gap_pct']:+.2f}%"
-            alt_cell = f"{r['alt_excess_pct']:+.1f}%"
+        delta = "static" if r["delta"] is None else f"{r['delta']:g}"
+        drift = "-" if r["drift_pct"] is None else f"{r['drift_pct']:.2f}%"
+        ref = r["exact"] if r["exact"] is not None else min(r["greedy"], r["local"])
         print(
-            f"| {r['n']} | {r['variant']} | {exact_cell} | {r['greedy']:.4f} | {gap_cell} "
-            f"| {r['altitude']:.4f} | {alt_cell} |"
+            f"| {r['n']} | {delta} | {r['raan_window']:g} deg | {r['span']:.1f} | {drift} "
+            f"| {ref:.4f} *{r['reference_kind']}* | {r['greedy_gap']:+.2f}% "
+            f"| {r['local_gap']:+.2f}% | {r['altitude_gap']:+.1f}% |"
         )
     print()
 
 
+def cli_command(snapshot: str, n: int, delta: float | None, window: ClusterWindow, version: str):
+    parts = [
+        "uv run dextrivia build",
+        f"--snapshot data/snapshots/{snapshot}",
+        "--select plane-cluster --cost-model impulsive-plane",
+        f"--n {n}",
+    ]
+    if delta is not None:
+        parts.append(f"--delta-days {delta:g}")
+    if window != ClusterWindow():
+        parts.append(f"--raan-window {window.raan_window_deg:g}")
+    parts.append(f"--family-version {version}")
+    return " ".join(parts)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--snapshot", default=FAMILY_SNAPSHOT, help=f"default {FAMILY_SNAPSHOT}")
-    parser.add_argument("--version", default=FAMILY_VERSION)
-    parser.add_argument("--delta-days", type=float, default=DEFAULT_DELTA_DAYS)
+    parser.add_argument("--version", default="v2", choices=sorted(FAMILIES))
     parser.add_argument("--out-dir", type=Path, default=None)
     parser.add_argument(
         "--check",
@@ -109,33 +182,54 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    snapshot_path = Path(args.snapshot)
-    if not snapshot_path.exists():
-        snapshot_path = default_snapshot_dir() / args.snapshot
-    snapshot = Snapshot.load(snapshot_path)
+    family = FAMILIES[args.version]
+    snapshot = Snapshot.load(default_snapshot_dir() / family.snapshot)
+    stem = Path(family.snapshot).stem
     out_dir = args.out_dir or instance_dir()
-
-    print(f"snapshot  {snapshot_path.name} ({len(snapshot)} objects)")
+    print(f"snapshot  {family.snapshot} ({len(snapshot)} objects)")
     print(f"epoch     {snapshot.median_epoch().isoformat()} (snapshot median TLE epoch)")
-    print(f"delta     {args.delta_days:g} days per leg (transfer + rendezvous + capture)")
 
-    rows = []
-    for n in FAMILY_SIZES:
-        for delta in (None, args.delta_days):
-            path = out_dir / family_name(snapshot_path.stem, n, delta, args.version)
+    rows, skipped = [], []
+    for n in family.sizes:
+        window = (
+            large_window(snapshot, max(family.large_sizes)) if n in family.large_sizes else None
+        )
+        for delta in family.deltas:
+            path = family_path(out_dir, stem, n, delta, args.version)
             if args.check:
+                if not path.exists():
+                    continue
                 instance = ProblemInstance.load(path)
+            elif family.enforce_horizon and (n - 2) * (delta or 0.0) > VALIDITY_HORIZON_DAYS:
+                # the last departure alone is past the horizon; TLE age only adds
+                skipped.append((n, delta, (n - 2) * delta))
+                continue
             else:
-                instance = build_cluster_instance(
-                    snapshot,
-                    n,
-                    ImpulsiveCostModel(delta_per_leg_days=delta),
-                    family_version=args.version,
-                )
+                with warnings.catch_warnings(record=True) as caught:
+                    warnings.simplefilter("always", PropagationHorizonWarning)
+                    instance = build_cluster_instance(
+                        snapshot,
+                        n,
+                        ImpulsiveCostModel(delta_per_leg_days=delta),
+                        window=window,
+                        family_version=args.version,
+                    )
+                if family.enforce_horizon and instance.metadata["exceeds_validity_horizon"]:
+                    skipped.append((n, delta, instance.metadata["propagation_span_days"]))
+                    continue
+                for w in caught:
+                    print(f"  warning: {w.message}")
+                path.parent.mkdir(parents=True, exist_ok=True)
                 instance.save(path)
                 print(f"wrote {path.name}  costs {instance.costs.shape}")
+                command = cli_command(
+                    family.snapshot, n, delta, window or ClusterWindow(), args.version
+                )
+                print(f"  $ {command}")
             rows.append(report_row(instance, snapshot))
 
+    for n, delta, span in skipped:
+        print(f"skipped n={n} delta={delta:g} d: span >= {span:.1f} d exceeds the horizon")
     print_table(rows)
     return 0
 

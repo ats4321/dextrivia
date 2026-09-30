@@ -10,6 +10,7 @@ from datetime import datetime
 
 from dextrivia.core import CostModel, ProblemInstance
 from dextrivia.costs.hohmann import HohmannCostModel
+from dextrivia.costs.validity import horizon_metadata
 from dextrivia.snapshots import Snapshot
 
 __all__ = ["build_instance"]
@@ -27,7 +28,9 @@ def build_instance(
 
     ``epoch`` defaults to the snapshot's median TLE epoch. There is deliberately
     no hardcoded calendar date anywhere in this package: propagating months away
-    from the TLE epochs silently degrades every altitude.
+    from the TLE epochs silently degrades every altitude. A caller-supplied
+    epoch is still allowed, but the propagation span is recorded against the
+    validity horizon and warned about if it exceeds it.
     """
     cost_model = cost_model or HohmannCostModel()
     objects = snapshot.select(n, rule=rule, seed=seed)
@@ -50,5 +53,6 @@ def build_instance(
             "selection_seed": seed,
             "cost_model": cost_model.name,
             "epoch_source": epoch_source,
+            **horizon_metadata(objects, [epoch], label=f"{snapshot.path.name} n={n}"),
         },
     )
