@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "setup": "uv sync --all-extras",
+    "setup": "ln -sf \"$CONDUCTOR_ROOT_PATH/.env\" .env && uv sync --all-extras",
     "run": "uv run pytest"
   }
 }

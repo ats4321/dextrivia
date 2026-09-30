@@ -64,7 +64,7 @@ BACKENDS = ("dwave", "dimod", "qiskit", "scipy", "ortools")
 
 @pytest.mark.parametrize(
     "module",
-    ["quantum_annealing", "quantum_qaoa", "ortools_routing"],
+    ["quantum_annealing", "quantum_qaoa", "quantum_qaoa_swap", "ortools_routing"],
 )
 def test_no_backend_is_imported_at_module_scope(module):
     """The CLI has to stay importable on a core install.

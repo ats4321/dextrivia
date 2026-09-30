@@ -148,6 +148,12 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
   for future solver authors is that the position-in-sequence slot index makes
   2-opt **O(N) rather than O(1)** under time-slotted costs — see the QUBO
   section below.
+* 2026-09-27 — `qaoa-swap` (constraint-preserving QAOA, QUBO workspace) landed
+  with **no change to `core.py`**. Everything it records — backend, initial
+  state, whether feasibility was measured or structural, `runtime_kind` — goes
+  in `Solution.metadata`. `qubo.formulation` gained an additive
+  `objective_qubo()` (penalty-free H_obj); `build_qubo` is unchanged in
+  behaviour and shares its objective loop.
 * 2026-09-28 — propagation validity horizon and v2 family (physics workspace,
   which for this change also held `snapshots.py`, `instances.py`, `cli.py`
   and `data/`). **No change to `core.py`.** Every new fact rides in `metadata`.
@@ -380,11 +386,13 @@ written once for both shapes.
 | `src/dextrivia/qubo/` | formulation, decoding, repair, penalty sweep, run bookkeeping |
 | `src/dextrivia/solvers/quantum_annealing.py` | `sa-qubo`, dwave-samplers |
 | `src/dextrivia/solvers/quantum_qaoa.py` | `qaoa`, Qiskit statevector |
+| `src/dextrivia/solvers/quantum_qaoa_swap.py` | `qaoa-swap`, constraint-preserving mixer; Qiskit statevector or exact subspace backend |
 | `src/dextrivia/solvers/ortools_routing.py` | `ortools` — **not a quantum file**, see below |
 | `src/dextrivia/solvers/permutation.py` | `localsearch` + `sa-perm` — **classical controls**, see below |
 | `src/dextrivia/solvers/cpsat.py` | `cpsat` — time-indexed MIP, also classical |
 | `scripts/benchmark_family.py`, `scripts/penalty_study.py` | the multi-seed studies behind every number quoted here |
-| `tests/test_qubo_formulation.py`, `tests/test_qubo_solvers.py`, `tests/test_classical_baselines.py` | added, nothing else in `tests/` touched |
+| `scripts/qaoa_mixer_study.py`, `scripts/qaoa_hardware.py` | the `qaoa-swap` quality study (+ Aer MPS check) and the IBM hardware run |
+| `tests/test_qubo_formulation.py`, `tests/test_qubo_solvers.py`, `tests/test_classical_baselines.py`, `tests/test_qaoa_swap.py` | added, nothing else in `tests/` touched |
 | `docs/qubo.md`, `docs/data/*.json` | new |
 
 `permutation.py`, `cpsat.py` and `ortools_routing.py` are classical and do not
@@ -405,7 +413,17 @@ instead.
 
 `src/dextrivia/solvers/__init__.py` gained three entries in `SOLVERS` plus their
 imports, so the CLI can reach them. That file was unowned; this line is the
-record.
+record. It later gained a fourth, `qaoa-swap`. **Heads-up for the benchmark
+workspace:** `dextrivia bench` with no `--solvers` runs every registered
+solver, so `qaoa-swap` now joins a default run (seconds per run on the subspace
+backend). `bench.py`'s runtime-label table does not know it; the solver records
+`runtime_kind` ("classical subspace simulation time") in its own metadata. The
+committed canonical run is unchanged until that workspace re-runs it.
+
+Files outside the ownership table touched by the `qaoa-swap` work, all
+additive: `.gitignore` (`.env`), `conductor.json` (setup symlinks the repo
+root's `.env` into each workspace), `pyproject.toml` + `uv.lock` (new `ibm`
+extra, `qiskit-ibm-runtime>=0.50`, used only by `scripts/qaoa_hardware.py`).
 
 ### Rules for anyone touching this code
 
@@ -434,6 +452,19 @@ record.
   the same problem. Any move evaluation here re-costs the full path. The
   textbook O(1) delta is silently **wrong** on exactly the instances that
   matter.
+* **`qaoa-swap` uniform-start and basis-start numbers never share a table.**
+  The uniform start (an initial statevector; reps=0 = random permutation) is
+  the quality study. The basis start (X gates) is the only thing hardware can
+  run, and from a basis state the first phase separator is a global phase. They
+  answer different questions.
+* **Subspace-backend feasibility is structural, not measured.** The solver says
+  so in `feasibility_measured`. Measured feasibility needs the statevector
+  backend or a re-run of the synthesised circuit.
+* **The subspace simulator's authority is one test.**
+  `test_qiskit_circuit_matches_subspace_simulation_amplitude_by_amplitude`
+  compares it with the synthesised Qiskit circuit at N=3 and 4. If the mixer
+  schedule, the cost operator or the encoding changes, that test is what
+  decides whether the subspace numbers still mean anything.
 * **Never rank solvers by argmin without a tie rule.** The first penalty
   verdict claimed "factor 1.01 wins 4/6" purely because easy instances score
   +0.00% across the board and `min()` picks whatever sorts first. Ties must
@@ -489,3 +520,22 @@ record.
    *provably sufficient* bound costs a factor of two to three in quality
    against the sub-threshold factor 0.5, which still samples 94–97% feasible.
    The guarantee is real and it is not free.
+14. **`qaoa-swap` answers the within-feasible question at N=4, and the answer
+   fades with N.** Uniform start, 5 seeds, depths 1–5
+   (`docs/data/qaoa_mixer_study.json`). At N=4, measured feasibility is 1.000
+   in every run, and it captures 0.68–0.90 (`n4_static`) and 0.57–0.74
+   (`n4_td30d`) of the improvement over a random permutation, against 0.16 and
+   0.14 for the X-mixer `qaoa`. At N=5 and N=8 the best depth captures only
+   0.44–0.50, and P(optimal) at N=8 is <1%. Past p≈3 COBYLA exhausts its
+   budget and the depth curve falls, which is optimiser failure, since depth
+   p+1 contains depth p. Warm-starting from p−1 is untried.
+15. **Reach past N=4 comes from the problem's size, not from quantum
+   anything.** The constraint-preserving circuit lives in an N!-dimensional
+   subspace, so it simulates exactly to N=9. Aer MPS is correct where it runs
+   (TVD at the shot-noise floor), but took over 600 s at 49 qubits and p=3,
+   and it refuses 64 qubits (N=8) outright. qiskit-aer 0.17.2's MPS
+   `save_amplitudes` returns wrong amplitudes on this circuit; sample instead.
+16. **No hardware result exists.** No IBM token was configured, so
+   `docs/data/qaoa_hardware.json` records `status: skipped`. Against FakeFez,
+   one layer is 368 two-qubit gates at N=3 (estimated fidelity 0.33) and 1212
+   at N=4 (0.021). Instructions are in `docs/qubo.md` §10.

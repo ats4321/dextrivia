@@ -3,6 +3,7 @@
 Owned by the QUBO workspace. Code: `src/dextrivia/qubo/formulation.py`,
 `src/dextrivia/solvers/quantum_annealing.py`,
 `src/dextrivia/solvers/quantum_qaoa.py`,
+`src/dextrivia/solvers/quantum_qaoa_swap.py`,
 `src/dextrivia/solvers/ortools_routing.py`.
 
 This document records a formulation and a characterization. It is **not** a
@@ -16,6 +17,14 @@ optimum everywhere and `sa-qubo` beats it nowhere, losing by up to 106% while
 consuming *more* wall clock. A plain 2-opt/or-opt local search also matches the
 reference on all twelve, deterministically, in 1–6 ms. See §7, which also
 retracts an earlier single-seed claim that the QUBO route had won at N=8.
+
+**`qaoa-swap` (§10)** drops the penalty entirely and uses Hadfield et al.'s
+permutation-swap mixer, which cannot leave the feasible set. At N=4, every
+measured shot of the real circuit is feasible, and it captures 57–90% of the
+achievable improvement over a random permutation, against 14–16% for the
+penalty `qaoa`. The margin shrinks at N=5 and N=8 (≤0.50), and past p≈3 the
+optimiser, not the ansatz, is the limit. It is still a toy-size simulation. No
+hardware was run (no token configured).
 
 ## 1. The problem, restated for a binary encoder
 
@@ -209,6 +218,7 @@ constraints look like it solved the problem.
 |---|---|---|---|
 | Simulated annealing on the QUBO | `sa-qubo` | `dwave-samplers` | $N \le 40$ by policy, a runtime wall not a correctness one |
 | QAOA, statevector simulator | `qaoa` | `qiskit` ≥ 2.0 + `scipy` | $N \le 4$ — **hard**, see below |
+| Constraint-preserving QAOA | `qaoa-swap` | `scipy` (+ `qiskit` for the statevector backend) | $N \le 4$ statevector, $N \le 9$ exact subspace — §10 |
 | OR-Tools routing | `ortools` | `ortools` | no practical $N$ limit; **cannot do time-slotted costs** |
 | 2-opt/or-opt local search | `localsearch` | none | no limit; optimal on all 12 family instances in 1–6 ms |
 | Annealing over permutations | `sa-perm` | none | no limit; **the control for `sa-qubo`** |
@@ -428,6 +438,7 @@ omitted, so a run record never silently loses a row.
 |---|---|---|---|
 | QUBO construction | $N^2$ | dense $Q$ is $(N^2)^2$ floats: 6 MB at $N=30$ | memory |
 | `qaoa` | $N^2$ qubits | $N=4$ | $2^{N^2}$ statevector |
+| `qaoa-swap` | $N^2$ qubits, $N!$ reachable | $N=4$ / $N=9$ | statevector / exact feasible-subspace simulation (§10) |
 | `sa-qubo` | $N^2$ spins | $N=40$ by policy | runtime |
 | `exact` (oracle) | — | $N=18$ | $2^N N^2$ |
 | `brute` (oracle) | — | $N=8$ | $N!$ |
@@ -438,3 +449,340 @@ omitted, so a run record never silently loses a row.
 
 Every ceiling is reported as `feasible=False` with a reason in `metadata`, never
 as an exception — a benchmark has to record a miss, not crash on it.
+
+## 10. `qaoa-swap`: a mixer that never leaves the feasible set
+
+Code: `src/dextrivia/qubo/permutation_qaoa.py` (mixer schedule, subspace
+simulator), `src/dextrivia/solvers/quantum_qaoa_swap.py` (the Qiskit circuit and
+the solver), `tests/test_qaoa_swap.py`. Data: `docs/data/qaoa_mixer_study.json`,
+`docs/data/qaoa_hardware.json`. Regenerate with `scripts/qaoa_mixer_study.py`
+and `scripts/qaoa_hardware.py`.
+
+§6 found that the penalty-QUBO `qaoa` finds *permutations* but not *good*
+permutations. The textbook remedy is to stop spending the circuit on the
+constraints at all: start inside the feasible subspace and use a mixer that
+cannot leave it (Hadfield, Wang, O'Gorman, Rieffel, Venturelli, Biswas, *From
+the Quantum Approximate Optimization Algorithm to a Quantum Alternating Operator
+Ansatz*, Algorithms **12**(2):34, 2019, doi:10.3390/a12020034, arXiv:1709.03489v2).
+Their orderings construction is **§5.1** (TSP).
+
+### Why not an XY mixer
+
+An XY (ring or complete) mixer on a one-hot register preserves that register's
+Hamming weight. The position encoding has *two* families of one-hot constraints
+— one object per position and one position per object — and an XY mixer on each
+position's register preserves only the first. It will happily put one object in
+two positions. XY mixers are the right tool when each variable has a single
+one-hot register and nothing else, as in graph colouring (Wang, Rubin, Dominy,
+Rieffel, *XY-mixers: analytical and numerical results for QAOA*, Phys. Rev. A
+**101**, 012320, 2020, doi:10.1103/PhysRevA.101.012320). For permutations
+Hadfield et al. use the ordering-swap mixer below, which is 4-local.
+
+### The ansatz
+
+Qubit $(u,p)$ is $x_{u,p}$, "object $u$ is visited $p$-th", index $uN+p$ as in
+§2. With $S^+ = |1\rangle\langle 0| = (X-iY)/2$ and $S^- = (S^+)^\dagger$, the
+**adjacent ordering-swap partial mixer** (Hadfield eqs. 46–47) for positions
+$(i,i+1)$ and objects $\{u,v\}$ is
+
+$$H_{i,\{u,v\}} \;=\; S^+_{u,i+1}\,S^+_{v,i}\,S^-_{u,i}\,S^-_{v,i+1} \;+\; \text{h.c.}$$
+
+It swaps $u$ and $v$ between positions $i$ and $i+1$ if and only if they occupy
+them, and annihilates every other basis state. One layer of the circuit is
+
+$$U(\gamma,\beta) \;=\; \underbrace{\prod_{\text{odd } i}\;\prod_{\{u,v\}} e^{-i\beta H_{i,\{u,v\}}}\;\prod_{\text{even } i}\;\prod_{\{u,v\}} e^{-i\beta H_{i,\{u,v\}}}}_{\text{mixer}} \;\; \underbrace{e^{-i\gamma H_{\text{obj}}}}_{\text{phase separator}}$$
+
+with $i \in \{0,\dots,N-2\}$ (open path: no wrap-around "last" part as in the
+TSP tour). $H_{\text{obj}}$ is the objective of §2 alone, **with no penalty**:
+on permutation matrices $H_{\text{pen}} \equiv 0$, so it would only add a
+constant. Its leg-$p$ coupling is `instance.leg_costs(p)`, so time-slotted
+costs work unchanged, exactly as in §4. Within one position the object pairs
+are applied in Hadfield's colour-partition order (a proper edge colouring of
+$K_N$, so each colour is a set of partial mixers on disjoint qubits that can run
+as one parallel layer). Hadfield order the parts colour-major; we order them
+parity-major. On the feasible subspace the two are the same operator — see the
+proof below.
+
+Initial states — **two, answering different questions, never mixed in a
+table**:
+
+* **uniform** — equal superposition over all $N!$ permutation matrices. At
+  zero layers this *is* the uniform-random-permutation baseline, so any gain
+  over random is attributable to the layers. It is supplied as an initial
+  statevector, not synthesised as a gate: a state-preparation circuit over
+  $N^2$ qubits is not something hardware can run. The quality study uses this.
+* **basis** — one permutation (the identity order), prepared with $X$ gates.
+  Hardware-runnable. The hardware run uses this.
+
+### Proof: the ansatz preserves feasibility, and may be regrouped
+
+Let $F$ be the span of the $N!$ permutation-matrix basis states. Four claims,
+each checked by a test.
+
+**(a) Each partial mixer preserves $F$.** On a basis state $|\sigma\rangle$ with
+$\sigma$ a permutation, $H_{i,\{u,v\}}$ gives $|\sigma'\rangle$ — $\sigma$ with
+positions $i,i+1$ exchanged — when $\{\sigma_i,\sigma_{i+1}\} = \{u,v\}$, and
+$0$ otherwise. So $H_{i,\{u,v\}}F \subseteq F$. It is Hermitian, so it also
+preserves $F^\perp$, and therefore so does every function of it, including
+$e^{-i\beta H_{i,\{u,v\}}}$. The phase separator is diagonal in the
+computational basis and preserves $F$ trivially. Hence the whole circuit maps
+$F$ to $F$, for any angles and any ordering of the factors. Leakage out of $F$
+is exactly zero in exact arithmetic.
+
+**(b) The Pauli strings inside one partial mixer commute, so each factor is
+exponentiated exactly.** Expanding the four ladder operators gives
+$2^4 = 16$ strings, each with $X$ or $Y$ on all four qubits and coefficient
+$\pm\tfrac{1}{16}\,i^{\#Y}$. Adding the Hermitian conjugate cancels the strings
+with an odd number of $Y$s (their coefficients are imaginary) and doubles the
+rest: **8 strings, coefficient $\pm\tfrac18$, each with an even number of $Y$s**.
+Two single-qubit Paulis from $\{X,Y\}$ anticommute iff they differ, so two such
+strings anticommute on exactly as many qubits as they differ on. Two strings with
+the same $Y$-parity differ on an even number of qubits. The signs cancel and the
+strings commute. Qiskit's default `PauliEvolutionGate` synthesis (Lie–Trotter,
+one step) is therefore **exact** for each partial mixer, not a Trotter
+approximation.
+(`test_every_pauli_string_in_a_swap_term_commutes`.)
+
+**(c) Partial mixers at the same position commute on $F$, although not on the
+full space.** $H_{i,\{u,v\}}$ and $H_{i,\{u,w\}}$ share qubits $(u,i)$ and
+$(u,i+1)$, and on the full $2^{N^2}$-dimensional space they do not commute in
+general. So the ordering within a position does matter off $F$. Restricted to
+$F$, however: $H_{i,\{u,v\}}|\sigma\rangle \neq 0$ requires
+$\{\sigma_i,\sigma_{i+1}\} = \{u,v\}$, and the output $|\sigma'\rangle$ has the
+same pair at those positions. In a permutation, *exactly one* unordered pair
+occupies positions $(i,i+1)$. So for $\{u,v\} \neq \{u',v'\}$,
+
+$$H_{i,\{u',v'\}}\,H_{i,\{u,v\}}\big|_F = 0 = H_{i,\{u,v\}}\,H_{i,\{u',v'\}}\big|_F .$$
+
+The restricted operators commute, and because all their pairwise products
+vanish,
+
+$$\prod_{\{u,v\}} e^{-i\beta H_{i,\{u,v\}}}\Big|_F \;=\; e^{-i\beta H_i}\big|_F, \qquad H_i = \sum_{\{u,v\}} H_{i,\{u,v\}},$$
+
+in any order. Here $H_i$ is Hadfield's *value-independent* adjacent swap (eq. 49).
+By (a), the circuit acting on a state in $F$ equals the product of the restricted
+factors, so the within-position ordering is irrelevant *for this ansatz*. The
+disproof half matters too: a circuit that starts outside $F$, or a hardware
+error that knocks the state out of $F$, sees an ordering-dependent operator.
+(`test_partial_mixers_at_one_position_multiply_to_zero_on_the_feasible_subspace`
+builds the restricted matrices and checks every pairwise product is zero.)
+
+**(d) On $F$ the mixer is closed-form.** $H_i|_F$ is a perfect matching of
+permutations (every permutation has exactly one partner, with positions $i,i+1$
+swapped), so $H_i^2|_F = I$ and
+$e^{-i\beta H_i}|_F = \cos\beta\, I - i\sin\beta\, H_i|_F$. $H_i$ and $H_{i'}$
+act on disjoint qubits when $|i-i'|>1$, so all even positions commute with each
+other, as do all odd ones. The mixer on $F$ is exactly
+$e^{-i\beta H_{\text{odd}}}\,e^{-i\beta H_{\text{even}}}$, two blocks per layer.
+Since adjacent transpositions generate $S_N$, repeated layers reach every
+permutation.
+
+**The final word is numerical**:
+`test_qiskit_circuit_matches_subspace_simulation_amplitude_by_amplitude`
+synthesises the Qiskit circuit to `cx/rz/sx/x`, evolves a dense statevector, and
+compares it with the subspace simulator amplitude by amplitude at $N=3$ and
+$N=4$, for static and time-slotted costs and for uniform and basis starts.
+Measured agreement: **max |Δamplitude| ≤ 1.6e-10**, **leakage out of $F$ ≤
+9e-14** (reps=2; 1,872 CNOTs at $N=4$). Synthesising first matters.
+`Statevector.evolve` on an unsynthesised `PauliEvolutionGate` exponentiates the
+whole operator as a matrix, which would check the mathematics but not the gate
+sequence a device runs.
+
+### The subspace simulator, and why it answers "can it go past N=4"
+
+Claims (a)–(d) mean the circuit, started in $F$, lives in an $N!$-dimensional
+space. There the phase separator is `psi *= exp(-1j*gamma*cost)` and each
+position's mixer is `psi = cos(b)*psi - 1j*sin(b)*psi[partner_i]`. That is an
+**exact** simulation of the same circuit, verified above, and not a
+quantum-inspired approximation:
+
+| $N$ | qubits | dense statevector | feasible subspace |
+|---|---|---|---|
+| 4 | 16 | 1 MB | 24 amplitudes |
+| 5 | 25 | 512 MB | 120 |
+| 8 | 64 | $2.9\times10^{20}$ bytes | 40,320 |
+| 9 | 81 | — | 362,880 (~20 MB with index arrays) |
+
+`SUBSPACE_MAX_N = 9`. The statevector backend keeps the qubit wall at
+`STATEVECTOR_MAX_N = 4`. Past either limit the solver returns `feasible=False`
+with the size in the reason. On the subspace backend `feasibility_rate` is 1.0
+**by construction** (`feasibility_measured: false` in metadata); only the
+statevector backend, and the study's re-measurement below, measure it.
+
+Note what this says about the quantum solver. The reason the constraint-preserving
+ansatz can be simulated to $N=9$ is that its reachable state space is only $N!$.
+The feasible subspace is exactly as small classically as it is quantumly, so an
+exact classical simulation of this circuit costs about as much as enumerating
+every sequence, which Held-Karp already beats.
+
+### Results, uniform start: does it optimise *within* the feasible set?
+
+**Yes, at N=4, clearly. Less so as N grows. Depth past ~3 stops helping
+because the optimiser does, not because the ansatz is exhausted.**
+
+Protocol (`scripts/qaoa_mixer_study.py`, data `docs/data/qaoa_mixer_study.json`):
+uniform start, depths 1–5, seeds 1–5, 4096 shots, COBYLA with 3 random restarts
+and `maxiter=1000`. Optimisation runs on the exact subspace backend. At $N=4$
+the optimised angles are then re-run on the **synthesised Qiskit circuit** and
+feasibility is **measured** from 4096 sampled bitstrings. Above $N=4$
+feasibility is 1.0 by construction (c). The optimum is Held-Karp, outside the
+solver.
+
+**captured** = (random mean − QAOA mean) / (random mean − optimum): the share of
+the achievable improvement over a uniformly random permutation. 0 is chance, 1
+is "always optimal". The X-mixer row uses the same formula on the committed
+canonical run (`results/canonical/results.csv`, 5 seeds, reps=2). Its P(optimal)
+is conditioned on feasibility, because every `qaoa-swap` sample is feasible.
+Means ± standard deviation over 5 seeds.
+
+| instance | solver | p | raw feasibility | P(optimal) | uniform over feasible | mean Δv (km/s) | random perm. mean | captured |
+|---|---|---|---|---|---|---|---|---|
+| `n4_static` | `qaoa` (X mixer, penalty) | 2 | 0.034 (m) | 0.133 ± 0.037 *given feasible* | 0.0833 | 0.9586 | 1.0261 | **0.16 ± 0.07** |
+| `n4_static` | `qaoa-swap` | 1 | 1.000 (m) | 0.328 ± 0.000 | 0.0833 | 0.7340 ± 0.0000 | 1.0261 | **0.68 ± 0.00** |
+| `n4_static` | `qaoa-swap` | 2 | 1.000 (m) | 0.455 ± 0.019 | 0.0833 | 0.6937 ± 0.0105 | 1.0261 | **0.77 ± 0.02** |
+| `n4_static` | `qaoa-swap` | 3 | 1.000 (m) | 0.536 ± 0.069 | 0.0833 | 0.6763 ± 0.0096 | 1.0261 | **0.81 ± 0.02** |
+| `n4_static` | `qaoa-swap` | 4 | 1.000 (m) | 0.707 ± 0.057 | 0.0833 | 0.6463 ± 0.0086 | 1.0261 | **0.88 ± 0.02** |
+| `n4_static` | `qaoa-swap` | 5 | 1.000 (m) | 0.762 ± 0.078 | 0.0833 | 0.6367 ± 0.0153 | 1.0261 | **0.90 ± 0.04** |
+| `n4_td30d` | `qaoa` (X mixer, penalty) | 2 | 0.027 (m) | 0.053 ± 0.024 *given feasible* | 0.0417 | 0.9103 | 0.9735 | **0.14 ± 0.08** |
+| `n4_td30d` | `qaoa-swap` | 1 | 1.000 (m) | 0.121 ± 0.040 | 0.0417 | 0.7140 ± 0.0987 | 0.9735 | **0.57 ± 0.22** |
+| `n4_td30d` | `qaoa-swap` | 2 | 1.000 (m) | 0.159 ± 0.035 | 0.0417 | 0.6521 ± 0.0339 | 0.9735 | **0.71 ± 0.08** |
+| `n4_td30d` | `qaoa-swap` | 3 | 1.000 (m) | 0.175 ± 0.068 | 0.0417 | 0.6446 ± 0.0261 | 0.9735 | **0.73 ± 0.06** |
+| `n4_td30d` | `qaoa-swap` | 4 | 1.000 (m) | 0.152 ± 0.081 | 0.0417 | 0.6400 ± 0.0334 | 0.9735 | **0.74 ± 0.07** |
+| `n4_td30d` | `qaoa-swap` | 5 | 1.000 (m) | 0.236 ± 0.035 | 0.0417 | 0.6399 ± 0.0298 | 0.9735 | **0.74 ± 0.07** |
+
+(m) = measured from sampled bitstrings. `qaoa-swap` P(optimal) and mean Δv are
+exact values of the output distribution. The 4096-shot empirical P(optimal)
+agrees with them to within 0.006 in every row of this table, and within 0.013
+in every individual run, which is shot noise (both are in the JSON).
+
+Past the old qubit wall, subspace backend:
+
+| instance | p=1 | p=2 | p=3 | p=4 | p=5 | uniform P(opt) | best P(opt) seen |
+|---|---|---|---|---|---|---|---|
+| `n5_static` captured | 0.30 ± 0.10 | 0.39 ± 0.15 | 0.48 ± 0.14 | **0.50 ± 0.16** | 0.41 ± 0.17 | 0.0167 | 0.185 (p=4) |
+| `n5_td30d` captured | 0.29 ± 0.08 | **0.47 ± 0.05** | 0.44 ± 0.09 | 0.47 ± 0.15 | 0.47 ± 0.11 | 0.0083 | 0.071 (p=3) |
+| `n8_static` captured | 0.20 ± 0.10 | 0.39 ± 0.00 | 0.36 ± 0.17 | **0.44 ± 0.14** | 0.37 ± 0.13 | 0.00005 | 0.009 (p=5) |
+| `n8_td30d` captured | 0.24 ± 0.00 | 0.31 ± 0.12 | **0.46 ± 0.00** | 0.37 ± 0.19 | 0.37 ± 0.19 | 0.00002 | 0.009 (p=5) |
+
+Read honestly:
+
+* **The within-feasible question has a clear answer at N=4.** The X-mixer
+  `qaoa` captured 14–16% of the available improvement. `qaoa-swap` captures
+  68–90% on `n4_static` and 57–74% on `n4_td30d`. Mean Δv is 38% and 34% below
+  a random permutation at p=5, against 6.6% and 6.5% for `qaoa`. P(optimal)
+  reaches 9× the uniform-over-feasible rate on `n4_static` and 5.7× on
+  `n4_td30d`, against 1.6× and 1.3× for the X mixer's feasible samples. Every
+  measured shot of the real circuit was feasible.
+* **Time dependence costs about 15 points of captured improvement** at N=4 and
+  flattens the depth curve. It has one optimal sequence instead of two
+  (reversal symmetry is broken), so there is half the target to hit.
+* **It fades with N.** Captured falls to ~0.45–0.50 at N=5 and ~0.44–0.46 at
+  N=8, and P(optimal) at N=8 is <1%. That is still 180–350× the uniform
+  rate, but in absolute terms most shots are not optimal.
+* **Depth is optimiser-limited, not ansatz-limited.** A depth-$p+1$ circuit
+  contains the depth-$p$ one (set the new angles to zero), so the true optimum
+  of captured cannot fall with $p$. When the table falls (N=5 and N=8 at p=5),
+  or the seed spread widens, COBYLA is failing, not the ansatz. The run records
+  confirm it: at $p \ge 3$ nearly every run exhausted all 3 × 1000 evaluations.
+  A warm start from the $p-1$ optimum (INTERP-style) is the obvious next step.
+  It was not tried here.
+* **Best-of-shots is still not evidence**, as §6 warned. The best sampled
+  sequence was optimal in 100/100 runs at N=4–5 and 45/50 at N=8. Local search
+  finds the same optimum in 1–6 ms, and at N=8 there are only 40,320 sequences.
+
+This is a toy-size simulation result about an ansatz. It is not a speed or
+quality advantage over anything classical. Every classical solver in §7 is
+optimal on all of these instances, and `localsearch` does it in milliseconds.
+
+### Beyond N=4: the subspace simulator vs Aer matrix-product states
+
+The subspace backend is the answer to "can it go past N=4". It is exact (proof
+above, tested amplitude by amplitude) and reaches N=9. The whole study above
+runs in 1–27 s per run on a laptop. Aer's MPS simulator was measured against it
+too (`--aer-only`, qiskit-aer 0.17.2, not a project dependency). Basis start,
+20,000 shots, total variation distance (TVD) to the exact distribution, next to
+the TVD of an equally large ideal sample (the shot-noise floor):
+
+| instance | qubits | p | CX | TVD, Aer MPS | TVD, ideal sample | Aer run | subspace evolve |
+|---|---|---|---|---|---|---|---|
+| `n5_static` | 25 | 1 | 1920 | 0.0030 | 0.0024 | 0.57 s | 0.7 ms |
+| `n5_static` | 25 | 2 | 3840 | 0.0050 | 0.0067 | 1.14 s | 0.3 ms |
+| `n5_td30d` | 25 | 2 | 3840 | 0.0050 | 0.0075 | 1.14 s | 0.3 ms |
+| `n8_*` first 7 objects | 49 | 1 | 6048 | 0.0033 | 0.0042 | 0.9–1.1 s | 0.7 ms |
+| `n8_*` first 7 objects | 49 | 3 | — | **did not finish in 600 s** | | | |
+| `n8_*` | 64 | 1 | — | **refused: Aer's limit is 63 qubits** | | | |
+
+(`n5_td30d` p=1 and the N=7 static/td pair are identical to their siblings. From
+a basis state the first phase separator is a global phase, so at p=1 the
+distribution does not depend on the costs.)
+
+* **Where it runs, Aer MPS is trustworthy**: its TVD sits at the shot-noise
+  floor, with zero leakage out of $F$.
+* **It does not extend reach.** Cost grows with entanglement, i.e. with depth:
+  49 qubits went from 1 s at p=1 to over 10 minutes at p=3. And N=8 is simply
+  over Aer's 63-qubit limit. Any state in $F$ has Schmidt rank at most
+  $N!$ across any cut, so MPS is exact in principle. In practice that bound is
+  the same $N!$ the subspace simulator pays directly, without the tensor
+  overhead.
+* **One Aer bug, recorded rather than worked around silently.** On this
+  circuit, qiskit-aer 0.17.2's MPS `save_amplitudes` returns wrong amplitudes
+  (max error 0.85 at N=3). The same method's `save_statevector` and its
+  sampling are correct to 1e-11, as is `save_amplitudes` on the statevector
+  method. The reproduction is in the JSON under `save_amplitudes_bug`. Hence
+  the sampling comparison above.
+
+So `qaoa-swap` keeps the refusal behaviour: `statevector` refuses N>4 and
+`subspace` refuses N>9, each with `feasible=False` and the size in the reason.
+Aer is not wired in as a backend, because it adds nothing the subspace backend
+does not already do exactly and faster.
+
+### Hardware (basis start): not run, and what it would cost
+
+**No IBM Quantum token was configured in this workspace**, so nothing was
+submitted. `docs/data/qaoa_hardware.json` records `status: skipped` with the
+reason and date (2026-09-28 UTC). To run it: put `IBM_QUANTUM_TOKEN=<API key>`
+(and optionally `IBM_QUANTUM_INSTANCE=<CRN>`) in the repo root's `.env`, which is
+gitignored and symlinked into each Conductor workspace by `conductor.json`.
+Then run `uv run python scripts/qaoa_hardware.py` with the `quantum` and `ibm`
+extras installed. The script never prints the token.
+
+This is a **different question** from the quality study, and its numbers must
+not be read against the table above. A hardware circuit cannot prepare the
+uniform superposition, so it starts in one basis permutation. From a basis state
+the first phase separator is a global phase, so reps=1 has nothing to optimise.
+The run is therefore a fidelity test of one full layer, with β = π/4 (every
+partial swap a 50/50 superposition) and γ = π / mean path cost, both fixed. It
+compares hardware feasibility, P(optimal), mean Δv and TVD against the exact
+noiseless distribution of the same circuit. A free optimisation picks β ≈ 0,
+"stay put", and the transpiler then deletes the near-identity rotations, which
+leaves nothing to test. That is why β is not optimised.
+
+Transpiled at `optimization_level=3` against `FakeFez` (a Heron r2 calibration
+snapshot shipped with qiskit-ibm-runtime 0.50.0). Estimated fidelity is the
+product of (1 − error) over every two-qubit gate and measurement, from that
+calibration:
+
+| circuit | qubits | depth | two-qubit gates | estimated fidelity | would submit |
+|---|---|---|---|---|---|
+| N=3 (first 3 of `n4_static` / `n4_td30d`), p=1 | 9 | ~925 | 368 | 0.33 | yes |
+| N=4 (`n4_static` / `n4_td30d`), p=1 | 16 | ~1670 | 1212 | 0.021 | yes (threshold 0.01) |
+
+A 33% estimated fidelity at N=3 means hardware feasibility will fall well below
+the noiseless 1.0. How far it falls, relative to the 6/512 = 0.0117 uniform
+bitstring rate, is the measurement the run would make. N=4 is marginal by the
+backend's own numbers.
+
+### Limitations specific to `qaoa-swap`
+
+* The uniform start is supplied as an initial statevector, not as a gate. No
+  hardware result can use it, so hardware and quality numbers answer different
+  questions by construction.
+* One layer costs (N−1)·C(N,2) four-local partial mixers, 8 Pauli rotations
+  each: ~310 CX per layer at N=3 and ~940 at N=4 before routing. On heavy-hex
+  hardware that is the binding constraint long before qubit count is.
+* The subspace simulator is exact because the reachable space is only N!. That
+  cuts both ways. Simulating the ansatz classically costs about as much as
+  enumerating every sequence, and Held-Karp beats enumeration.
+* COBYLA with random restarts does not converge at p ≥ 3 within 3 × 1000
+  evaluations, so the depth trend above is a lower bound on what the ansatz can
+  do. It is not a measurement of the ansatz's ceiling.

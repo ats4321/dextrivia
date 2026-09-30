@@ -32,6 +32,10 @@ quantum = [
 # physics workspace: the plane-aware cost models need nothing beyond numpy +
 # sgp4; matplotlib is here only for scripts/plot_cloud.py.
 physics = ["matplotlib>=3.8"]
+# QUBO workspace: IBM Quantum hardware access for scripts/qaoa_hardware.py only.
+# No solver imports it. 0.50 is the release the script was written against
+# (channel "ibm_quantum_platform", SamplerV2(mode=backend)).
+ibm = ["qiskit-ibm-runtime>=0.50"]
 
 [project.scripts]
 dextrivia = "dextrivia.cli:main"
