@@ -177,6 +177,56 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
     default. Every quoted CLI example pins `--snapshot`, and
     `tests/test_readme_example.py` runs the README's.
 
+* 2026-09-30 — headroom workspace: certified lower bounds, `ils`,
+  `sa-perm-cold`, v3 `collision-pair` family, resumable bench. **No change to
+  `core.py`.** Every new fact rides in `Solution.metadata` or instance
+  metadata. Additive changes to files other workspaces own:
+  * **`solvers/highs_mip.py` (new)**: `highs`, a time-indexed MIP whose LP is
+    strengthened with max-flow subtour cuts on aggregate arcs, run through
+    HiGHS (`scipy.optimize.milp`). `lower_bound_kms` is certified to HiGHS
+    tolerance minus 1e-6 km/s. It is checked against Held-Karp on all 29
+    committed N ≤ 15 instances. SciPy is imported inside `solve()`. The time
+    limit is enforced inside each LP, and an unfinished LP is discarded, never
+    used as a bound. `HIGHS_MAX_N = 60`.
+  * **`solvers/cpsat.py` (QUBO workspace)**: localsearch warm start
+    (`AddHint`) and a redundant `AddCircuit` over aggregate arcs, which moves
+    the v2 `n30_static` bound gap from 50% to 0%. `lower_bound_kms` now
+    subtracts `(N-1)·0.5/COST_SCALE`, because the old value bounded the
+    *rounded* problem. The raw value is kept as `raw_bound_kms`.
+    `CPSAT_MAX_N` goes from 40 to 50: at N=50 it proves static v3 using 2.8 GB,
+    at N=60 it needs 4.3 GB and leaves a 20% gap (`docs/bounds.md`).
+  * **`solvers/permutation.py` (QUBO workspace)**: `ils` (localsearch +
+    double-bridge + batched full-repricing descent + restarts) and
+    `sa-perm-cold` (`start_from_greedy=False`). `localsearch` and `sa-perm`
+    are unchanged.
+  * **`solvers/__init__.py`**: three `SOLVERS` entries; `highs` is added to
+    `DETERMINISTIC`.
+  * **`bench.py` (benchmark workspace)**:
+    * `reference_kind` gains `proven`, meaning the best-known value meets a
+      certified bound. `best-known` references carry their bound, the solver
+      that produced it, and the gap.
+    * A bound above a reference raises.
+    * Rows are checkpointed to `runs.jsonl`, so a run resumes with the same
+      `--out`, and the manifest lists the git state of each segment.
+    * `cpsat` runs one seed above N=20.
+    * **Bug fixed:** `certified_lower_bound_kms` read a key no solver writes,
+      so it was empty in every row of the first canonical run.
+  * **`costs/selection.py`, `cli.py`, `scripts/build_instance_family.py`
+    (physics / foundation)**:
+    * The `collision-pair` rule, `merge_snapshots`, and `dextrivia build
+      --select collision-pair --pair-snapshot`.
+    * `family_name` / `family_path` take an optional `rule`.
+    * v3 is built diagnostics-only, with no solver.
+    * `--check` no longer crashes on v1 files, which lack span metadata.
+  * **`data/snapshots/cosmos2251_20260930.json` (new)**: fetched with
+    `dextrivia fetch`. The v3 family lives in
+    `data/instances/collisionpair-v3/`. Its sha256 values are pinned in
+    `tests/test_collision_pair_family.py`, and it was committed before any
+    solver ran on it.
+  * **`scripts/plot_benchmark.py`**: the new solvers take their parent's hue,
+    dashed and hollow, instead of a ninth hue. It adds `--prefix` and a
+    per-instance gap/bound figure.
+
 ## Benchmark
 
 Owned by the **benchmark workspace**. Full write-up: **`README.md`** (the
