@@ -319,6 +319,7 @@ def figure_runtime_vs_n(summary: list[dict[str, str]], out: Path, prefix: str = 
 
 #: The headroom question is "does anything beat localsearch, and how far is
 #: anything from a certified bound?". These are the solvers that answer it.
+GAP_AXIS_MAX = 150.0
 HEADROOM_SOLVERS = ("greedy", "localsearch", "ils", "sa-perm", "sa-perm-cold", "cpsat", "highs")
 
 
@@ -337,7 +338,7 @@ def figure_gap_by_instance(summary: list[dict[str, str]], out: Path, prefix: str
         key=lambda s: (int(s.split("_")[0][1:]), s.split("_")[1] != "static", s),
     )
     head = {r["instance"]: r for r in summary}
-    fig, ax = plt.subplots(figsize=(10.5, 0.36 * len(labels) + 2.2))
+    fig, ax = plt.subplots(figsize=(12, 0.36 * len(labels) + 2.2))
     y = np.arange(len(labels))[::-1]
     bound_gap = [_number(head[label].get("reference_bound_gap_pct")) or 0.0 for label in labels]
     ax.barh(y, bound_gap, height=0.55, color="#e6e5df", edgecolor=GRID, zorder=1)
@@ -351,7 +352,22 @@ def figure_gap_by_instance(summary: list[dict[str, str]], out: Path, prefix: str
                 if r["instance"] == label and r["solver"] == solver and int(r["feasible_runs"])
             ]
             if rows and _number(rows[0]["gap_mean_pct"]) is not None:
-                xs.append(_number(rows[0]["gap_mean_pct"]))
+                gap = _number(rows[0]["gap_mean_pct"])
+                if gap > GAP_AXIS_MAX:
+                    # Off the axis: pinned to the edge and labelled with its value,
+                    # never silently dropped (highs' unfinished incumbents land here).
+                    ax.annotate(
+                        f"{solver} +{gap:.0f}%",
+                        xy=(GAP_AXIS_MAX, row_y + offset),
+                        xytext=(-8, 0),
+                        textcoords="offset points",
+                        fontsize=7,
+                        color=INK_SOFT,
+                        ha="right",
+                        va="center",
+                    )
+                    gap = GAP_AXIS_MAX
+                xs.append(gap)
                 ys.append(row_y + offset)
         if xs:
             style = _mark_style(solver)
@@ -373,14 +389,15 @@ def figure_gap_by_instance(summary: list[dict[str, str]], out: Path, prefix: str
     ax.set_xscale("symlog", linthresh=1.0, linscale=0.6)
     ax.set_xticks([0, 1, 2, 5, 10, 20, 50, 100])
     ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:g}"))
-    ax.set_xlim(-0.1, 150)
+    ax.set_xlim(-0.1, GAP_AXIS_MAX * 1.08)
     ax.set_xlabel(
         "mean gap above the reference (%, symlog below 1). Grey bar: reference minus "
         "certified lower bound",
         fontsize=9,
         color=INK_SOFT,
     )
-    ax.legend(loc="lower right", fontsize=8, frameon=True, framealpha=0.95, ncols=2)
+    # Outside the plot: inside, it sat on exactly the markers pinned at the edge.
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8, frameon=False)
     fig.suptitle(
         f"{prefix}: does anything beat localsearch, and is the reference proven?",
         fontsize=12,

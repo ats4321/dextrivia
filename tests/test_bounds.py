@@ -281,3 +281,16 @@ def test_static_v2_is_one_dimensional_raan_order_meets_the_certified_bound():
     raan_cost = min(instance.path_cost(order), instance.path_cost(order[::-1]))
     bound, _, _ = lp_lower_bound(instance)
     assert raan_cost - bound < 1e-5
+
+
+def test_every_solver_records_a_miss_rather_than_raising_at_n60():
+    """The v3 family reaches N=60; a size check that overflows is a crash, not a miss.
+
+    Found by the pre-canonical smoke run: qaoa's statevector-size message
+    computed 16 * 2**3600 and raised OverflowError out of the bench.
+    """
+    instance = random_instance(60, 1)
+    for name in ("qaoa", "qaoa-swap", "sa-qubo", "exact", "brute"):
+        solution = SOLVERS[name]().solve(instance, seed=1)
+        assert not solution.feasible, name
+        assert solution.metadata["reason"], name
