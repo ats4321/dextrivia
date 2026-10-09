@@ -30,6 +30,25 @@ same rule applied to a mixed catalogue (Cosmos-2251 debris, say) needs it, and
 because a window that silently does nothing should say so rather than be
 absent.
 
+``collision-pair`` (v3)
+    Both halves of the 2009 collision: Iridium-33 debris (~86.4 deg) and
+    Cosmos-2251 debris (~74.0 deg). Static plane-cluster instances turned out
+    to be effectively one-dimensional -- visiting in RAAN order is provably
+    optimal on v2 -- and one cloud cannot fix that, because at ~110 objects
+    over 360 deg any large cluster is a strip along RAAN. Two inclinations
+    make plane angle depend on inclination as well as RAAN.
+    1. Seed = the ``plane-cluster`` seed of the PRIMARY cloud (densest plane,
+       decay-screened), unchanged.
+    2. Each cloud contributes half the objects (the primary takes the odd
+       one): those within ``alt_band_km`` of the seed's altitude, nearest to the
+       seed in true plane angle, NORAD id breaking ties. No RAAN window --
+       the ranking is the window.
+    Fixed before any solver ran on it, and recorded in ``docs/physics.md`` section 11.
+    Realism caveat, stated wherever the family is quoted: a servicer crossing
+    ~12 deg of inclination between clouds pays ~1.6 km/s per crossing; real
+    missions stay in one plane. The family exists to test solvers, not to
+    propose a mission.
+
 Instances are built here rather than through ``dextrivia.instances.build_instance``
 because that function's ``rule`` argument is ``first``/``random`` only --
 foundation-owned. Nothing in ``core.py`` changes; this just populates the same
@@ -52,15 +71,23 @@ from dextrivia.snapshots import Snapshot
 
 __all__ = [
     "PLANE_CLUSTER_RULE",
+    "COLLISION_PAIR_RULE",
     "ClusterWindow",
     "ClusterSelection",
     "select_plane_cluster",
+    "select_collision_pair",
+    "merge_snapshots",
     "build_cluster_instance",
     "family_name",
     "family_path",
 ]
 
 PLANE_CLUSTER_RULE = "plane-cluster"
+COLLISION_PAIR_RULE = "collision-pair"
+
+#: The Iridium-measured horizon is applied to both clouds; nobody has measured
+#: it for Cosmos-2251 (no Space-Track history was available to this workspace).
+PAIR_HORIZON_NOTE = "horizon measured on Iridium-33 only; not validated for Cosmos-2251"
 
 
 @dataclass(frozen=True)
@@ -202,6 +229,79 @@ def select_plane_cluster(
     )
 
 
+def merge_snapshots(primary: Snapshot, secondary: Snapshot) -> Snapshot:
+    """Two snapshots as one pool, named ``<primary stem>+<secondary file>``.
+
+    In memory only: snapshots on disk stay immutable and single-source, and the
+    instance metadata names both files.
+    """
+    from pathlib import Path
+
+    ids = {o.norad_id for o in primary.objects}
+    clash = ids & {o.norad_id for o in secondary.objects}
+    if clash:
+        raise ValueError(f"NORAD ids in both snapshots: {sorted(clash)[:5]}")
+    fetched = [s.fetched_utc for s in (primary, secondary) if s.fetched_utc]
+    return Snapshot(
+        path=Path(f"{primary.path.stem}+{secondary.path.name}"),
+        source=f"{primary.source} + {secondary.source}",
+        group=f"{primary.group}+{secondary.group}",
+        fetched_utc=max(fetched) if fetched else None,
+        objects=primary.objects + secondary.objects,
+    )
+
+
+def select_collision_pair(
+    primary: Snapshot,
+    secondary: Snapshot,
+    n: int,
+    epoch: datetime,
+    window: ClusterWindow | None = None,
+    times: Iterable[datetime] | None = None,
+) -> ClusterSelection:
+    """``collision-pair``: half from each cloud, nearest the primary seed. See module docstring."""
+    window = window or ClusterWindow()
+    times = [epoch, *(times or ())]
+    seed_norad = select_plane_cluster(primary, 2, epoch=epoch, window=window, times=times)
+    seed_norad = seed_norad.seed_norad
+    seed_obj = next(o for o in primary.objects if o.norad_id == seed_norad)
+    seed = mean_elements(seed_obj.line1, seed_obj.line2, epoch)
+    seed_alt = seed.a_km - R_EARTH_WGS72_KM
+
+    chosen, excluded = [], []
+    for cloud, k in ((primary, n - n // 2), (secondary, n // 2)):
+        pool, dropped = screen_decay(cloud.objects, times)
+        excluded.extend(dropped)
+        ranked = []
+        for obj in pool:
+            e = mean_elements(obj.line1, obj.line2, epoch)
+            if abs(e.a_km - R_EARTH_WGS72_KM - seed_alt) > window.alt_band_km:
+                continue
+            angle = plane_angle(seed.inc_rad, seed.raan_rad, e.inc_rad, e.raan_rad)
+            ranked.append((float(angle), obj.norad_id, obj, e))
+        if len(ranked) < k:
+            raise ValueError(f"{cloud.path.name}: only {len(ranked)} objects in the band, need {k}")
+        chosen.extend(sorted(ranked, key=lambda r: (r[0], r[1]))[:k])
+
+    chosen.sort(key=lambda r: r[1])
+    elements = [r[3] for r in chosen]
+    angles = [
+        np.degrees(plane_angle(a.inc_rad, a.raan_rad, b.inc_rad, b.raan_rad))
+        for a in elements
+        for b in elements
+    ]
+    alts = [e.a_km for e in elements]
+    return ClusterSelection(
+        objects=tuple(r[2] for r in chosen),
+        seed_norad=seed_norad,
+        epoch=epoch,
+        window=window,
+        max_plane_angle_deg=float(max(angles)),
+        altitude_span_km=float(max(alts) - min(alts)),
+        excluded_decayed=tuple(excluded),
+    )
+
+
 def build_cluster_instance(
     snapshot: Snapshot,
     n: int,
@@ -210,6 +310,7 @@ def build_cluster_instance(
     window: ClusterWindow | None = None,
     seed_norad: int | None = None,
     family_version: str | None = None,
+    pair: Snapshot | None = None,
 ) -> ProblemInstance:
     """``plane-cluster`` selection + a cost model -> a fully provenanced instance.
 
@@ -219,12 +320,20 @@ def build_cluster_instance(
     plus the propagation span against the validity horizon (a
     ``PropagationHorizonWarning`` if it is exceeded) and any decayed exclusions.
     """
+    primary = snapshot
+    if pair is not None:
+        if seed_norad is not None:
+            raise ValueError("collision-pair takes its seed from the plane-cluster rule")
+        snapshot = merge_snapshots(primary, pair)
     epoch_source = "snapshot-median-tle-epoch" if epoch is None else "caller"
     epoch = epoch or snapshot.median_epoch()
     times = mission_times(cost_model, epoch, n)
-    selection = select_plane_cluster(
-        snapshot, n, epoch=epoch, window=window, seed_norad=seed_norad, times=times
-    )
+    if pair is None:
+        selection = select_plane_cluster(
+            snapshot, n, epoch=epoch, window=window, seed_norad=seed_norad, times=times
+        )
+    else:
+        selection = select_collision_pair(primary, pair, n, epoch, window=window, times=times)
     horizon = horizon_metadata(selection.objects, times, label=f"{snapshot.path.name} n={n}")
     costs = cost_model.build(selection.objects, selection.epoch)
     provenance = (
@@ -243,6 +352,17 @@ def build_cluster_instance(
         **provenance,
         **horizon,
     }
+    if pair is not None:
+        pair_ids = {o.norad_id for o in pair.objects}
+        metadata.update(
+            selection_rule=COLLISION_PAIR_RULE,
+            snapshots=[primary.path.name, pair.path.name],
+            cloud_counts={
+                primary.path.name: sum(o.norad_id not in pair_ids for o in selection.objects),
+                pair.path.name: sum(o.norad_id in pair_ids for o in selection.objects),
+            },
+            validity_horizon_note=PAIR_HORIZON_NOTE,
+        )
     if family_version is not None:
         metadata["family_version"] = family_version
     return ProblemInstance(
@@ -254,17 +374,31 @@ def build_cluster_instance(
     )
 
 
-def family_name(snapshot_stem: str, n: int, delta_days: float | None, version: str) -> str:
-    """``<snapshot-stem>_planecluster-<version>_n<N>_<static|td<delta>d>.npz``."""
+def family_name(
+    snapshot_stem: str,
+    n: int,
+    delta_days: float | None,
+    version: str,
+    rule: str = PLANE_CLUSTER_RULE,
+) -> str:
+    """``<snapshot-stem>_<rule>-<version>_n<N>_<static|td<delta>d>.npz``, rule sans hyphen."""
     variant = "static" if delta_days is None else f"td{delta_days:g}d"
-    return f"{snapshot_stem}_planecluster-{version}_n{n}_{variant}.npz"
+    return f"{snapshot_stem}_{rule.replace('-', '')}-{version}_n{n}_{variant}.npz"
 
 
-def family_path(instance_dir, snapshot_stem: str, n: int, delta: float | None, version: str):
+def family_path(
+    instance_dir,
+    snapshot_stem: str,
+    n: int,
+    delta: float | None,
+    version: str,
+    rule: str = PLANE_CLUSTER_RULE,
+):
     """Where a family file lives. v1 sits flat in ``instance_dir``, where the README's
     canonical benchmark run found it; later versions get a subdirectory so
     ``dextrivia bench``'s flat ``*.npz`` glob and short labels do not mix them up."""
     from pathlib import Path
 
-    base = Path(instance_dir) if version == "v1" else Path(instance_dir) / f"planecluster-{version}"
-    return base / family_name(snapshot_stem, n, delta, version)
+    folder = f"{rule.replace('-', '')}-{version}"
+    base = Path(instance_dir) if version == "v1" else Path(instance_dir) / folder
+    return base / family_name(snapshot_stem, n, delta, version, rule)

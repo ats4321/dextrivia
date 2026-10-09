@@ -222,7 +222,8 @@ constraints look like it solved the problem.
 | OR-Tools routing | `ortools` | `ortools` | no practical $N$ limit; **cannot do time-slotted costs** |
 | 2-opt/or-opt local search | `localsearch` | none | no limit; optimal on all 12 family instances in 1–6 ms |
 | Annealing over permutations | `sa-perm` | none | no limit; **the control for `sa-qubo`** |
-| Time-indexed MIP | `cpsat` | `ortools` | $N \le 40$; the only solver here that reports a *lower bound* |
+| Time-indexed MIP | `cpsat` | `ortools` | $N \le 50$ (raised from 40, evidence in `docs/bounds.md`); localsearch warm start, reports a certified *lower bound* |
+| Cut-strengthened time-indexed MIP | `highs` | `scipy` (HiGHS) | $N \le 60$; certified lower bound, see `docs/bounds.md` |
 
 Oracles for measuring all three: Held-Karp (`exact`, $N \le 18$) and brute force
 (`brute`, $N \le 8$). They are not competitors.
@@ -465,7 +466,7 @@ omitted, so a run record never silently loses a row.
 | `exact` (oracle) | — | $N=18$ | $2^N N^2$ |
 | `brute` (oracle) | — | $N=8$ | $N!$ |
 | `ortools` | — | none reached | time-limited heuristic, static costs only |
-| `cpsat` | $\approx N^3$ | $N=40$ by policy | proved N=15 in 2.2 s; N=20 unproven at 109 s |
+| `cpsat` | $\approx N^3$ | $N=50$ by policy | see `docs/bounds.md` for N=40-60 |
 | `localsearch` | — | none reached | full 2-opt + or-opt neighbourhood, $O(N^3)$ per pass |
 | `sa-perm` | — | none reached | wall-clock budgeted |
 

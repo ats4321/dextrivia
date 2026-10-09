@@ -42,8 +42,15 @@ _PACKAGES = ("qiskit", "scipy", "numpy")
 
 
 def statevector_bytes(n: int) -> float:
-    """Bytes for a dense statevector over the N**2 qubits this encoding needs."""
-    return 16.0 * 2.0 ** (n * n)
+    """Bytes for a dense statevector over the N**2 qubits this encoding needs.
+
+    ``inf`` once it overflows a float (N >= 32): the refusal has to be recorded,
+    and at N=60 computing the size used to raise instead.
+    """
+    try:
+        return 16.0 * 2.0 ** (n * n)
+    except OverflowError:
+        return math.inf
 
 
 def _infeasible(name: str, reason: str, t0: float, **metadata: Any) -> Solution:

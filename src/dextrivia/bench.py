@@ -17,13 +17,23 @@ Three rules this harness exists to enforce:
    in it. The only thing worse than a benchmark with holes is a benchmark that
    hides them.
 2. **The oracle is labelled.** ``reference_kind`` is ``exact`` when Held-Karp
-   could run and ``best-known`` when it could not. A gap against a best-known
-   value is not an optimality gap and is never called one.
+   ran; ``proven`` when Held-Karp could not but a certified lower bound
+   (``highs``, ``cpsat``) meets the best path found; and ``best-known``
+   otherwise, printed with its bound and the gap to it. A gap against a
+   best-known value is not an optimality gap and is never called one.
 3. **Costs are read through ``instance.leg_costs``**, never ``instance.costs``.
 
 Stochastic solvers are run once per seed and reported with a mean and a spread.
 Deterministic ones (``dextrivia.solvers.DETERMINISTIC``) are run once: three
-identical Held-Karp runs measure nothing and cost oracle time.
+identical Held-Karp runs measure nothing and cost oracle time. ``cpsat`` is
+run at one seed above N=20 (``SINGLE_SEED_ABOVE_N``): it burns its full limit
+there, and five 60 s runs of a time-limited MIP is five hours of a full run.
+
+A run is **resumable**. Every finished (instance, solver, seed) row is appended
+to ``runs.jsonl`` in the output directory as it completes; re-running with the
+same ``--out`` skips rows already there. Each row records the git state of the
+segment that produced it, so a resumed run cannot hide a code change between
+segments -- the manifest lists every segment.
 """
 
 from __future__ import annotations
@@ -69,9 +79,24 @@ RANDOM_PERMUTATION_SAMPLES = 100_000
 #: not a measurement, and a simulator's wall clock is not a quantum runtime.
 RUNTIME_NOTES = {
     "qaoa": "classical statevector simulation time",
+    "qaoa-swap": "classical subspace simulation time",
     "ortools": "configured time limit, not a measurement",
     "cpsat": "configured time limit unless proven_optimal",
+    "highs": "configured time limit unless proven_optimal",
 }
+
+#: Solvers run at the first seed only above this N. The summary's ``runs``
+#: column shows the effect, and the manifest records this table.
+SINGLE_SEED_ABOVE_N = {"cpsat": 20}
+
+#: A best-known value within this of a certified bound is ``proven``. Bounds
+#: already carry their own safety margin (1e-6 km/s for highs, (N-1)*0.5 mm/s
+#: rounding for cpsat); this is 1 cm/s, still far below any reported gap.
+PROVEN_TOLERANCE_KMS = 1e-5
+
+#: Checkpoint file, one JSON row per completed run.
+CHECKPOINT = "runs.jsonl"
+
 DEFAULT_RUNTIME_NOTE = "wall clock"
 
 #: Packages whose version changes a number in this table.
@@ -120,7 +145,11 @@ CSV_COLUMNS = (
     "penalty",
     "proven_optimal",
     "certified_lower_bound_kms",
+    "reference_lower_bound_kms",
+    "reference_bound_solver",
+    "reference_bound_gap_pct",
     "sequence_norad",
+    "git_sha",
 )
 
 PENALTY_COLUMNS = (
@@ -150,6 +179,9 @@ SUMMARY_COLUMNS = (
     "feasible_runs",
     "reference_dv_kms",
     "reference_kind",
+    "reference_lower_bound_kms",
+    "reference_bound_solver",
+    "reference_bound_gap_pct",
     "dv_best_kms",
     "dv_mean_kms",
     "dv_std_kms",
@@ -326,7 +358,9 @@ def run_one(
         "num_variables": meta.get("num_variables") or meta.get("qubits"),
         "penalty": meta.get("penalty"),
         "proven_optimal": meta.get("proven_optimal"),
-        "certified_lower_bound_kms": meta.get("best_objective_bound_kms"),
+        # Was meta["best_objective_bound_kms"], a key no solver ever wrote:
+        # this column was empty in every row of the first canonical run.
+        "certified_lower_bound_kms": meta.get("lower_bound_kms"),
         "sequence_norad": " ".join(str(i) for i in solution.norad_order(instance)),
         # Kept out of the CSV, used by add_references to turn a best-of-shots
         # count into a probability once the optimum is known.
@@ -339,9 +373,14 @@ def add_references(rows: list[dict[str, Any]], instances: dict[str, ProblemInsta
     """Fill in reference, gap, and the sampler-vs-chance columns. In place.
 
     The reference is Held-Karp where Held-Karp ran, and otherwise the best
-    delta-v any solver in this run achieved -- labelled ``best-known``, because
-    a gap measured against the best thing we happened to find is not an
-    optimality gap and must not be printed as one.
+    delta-v any solver in this run achieved. That is ``proven`` when the best
+    certified lower bound any row reported meets it (within
+    ``PROVEN_TOLERANCE_KMS``) and ``best-known`` when it does not -- a gap
+    measured against the best thing we happened to find is not an optimality
+    gap and must not be printed as one; the bound and the gap to it are
+    printed beside it instead.
+
+    A bound above the reference is a bug in a bound, not a result, and raises.
     """
     by_instance: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -351,13 +390,24 @@ def add_references(rows: list[dict[str, Any]], instances: dict[str, ProblemInsta
         instance = instances[label]
         feasible = [r for r in group if r["feasible"] and r["total_dv_kms"] is not None]
 
+        bounds = [r for r in group if r.get("certified_lower_bound_kms") is not None]
+        best_bound = max(bounds, key=lambda r: r["certified_lower_bound_kms"], default=None)
+        bound = best_bound["certified_lower_bound_kms"] if best_bound else None
+
         exact = [r for r in feasible if r["solver"] == "exact"]
         if exact:
             reference, kind = min(r["total_dv_kms"] for r in exact), "exact"
         elif feasible:
-            reference, kind = min(r["total_dv_kms"] for r in feasible), "best-known"
+            reference = min(r["total_dv_kms"] for r in feasible)
+            proven = bound is not None and reference - bound <= PROVEN_TOLERANCE_KMS
+            kind = "proven" if proven else "best-known"
         else:
             reference, kind = None, "none"
+        if bound is not None and reference is not None and bound > reference + 1e-9:
+            raise ValueError(
+                f"{label}: certified bound {bound} from {best_bound['solver']} exceeds "
+                f"the {kind} reference {reference} -- a bound is wrong"
+            )
 
         random_mean, random_method = (None, None)
         optima = None
@@ -368,6 +418,13 @@ def add_references(rows: list[dict[str, Any]], instances: dict[str, ProblemInsta
         for row in group:
             row["reference_dv_kms"] = reference
             row["reference_kind"] = kind
+            row["reference_lower_bound_kms"] = bound
+            row["reference_bound_solver"] = best_bound["solver"] if best_bound else None
+            row["reference_bound_gap_pct"] = (
+                max(0.0, (reference - bound) / reference * 100.0)
+                if bound is not None and reference
+                else None
+            )
             row["gap_pct"] = (
                 (row["total_dv_kms"] - reference) / reference * 100.0
                 if reference and row["total_dv_kms"] is not None and reference > 0
@@ -422,6 +479,9 @@ def summarize(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "feasible_runs": len(feasible),
                 "reference_dv_kms": head.get("reference_dv_kms"),
                 "reference_kind": head.get("reference_kind"),
+                "reference_lower_bound_kms": head.get("reference_lower_bound_kms"),
+                "reference_bound_solver": head.get("reference_bound_solver"),
+                "reference_bound_gap_pct": head.get("reference_bound_gap_pct"),
                 "dv_best_kms": min(dvs) if dvs else None,
                 "dv_mean_kms": float(np.mean(dvs)) if dvs else None,
                 "dv_std_kms": float(np.std(dvs, ddof=0)) if dvs else None,
@@ -501,6 +561,60 @@ def penalty_study(
                     }
                 )
     return rows
+
+
+def seeds_for(
+    name: str, n: int, seeds: tuple[int, ...], deterministic: bool
+) -> tuple[int | None, ...]:
+    """Which seeds ``name`` runs at on an N-object instance. See ``SINGLE_SEED_ABOVE_N``."""
+    if deterministic:
+        return (None,)
+    limit = SINGLE_SEED_ABOVE_N.get(name)
+    return seeds[:1] if limit is not None and n > limit else seeds
+
+
+def run_key(row: dict[str, Any]) -> tuple[str, str, int | None]:
+    return (row["instance_file"], row["solver"], row["seed"])
+
+
+def append_checkpoint(out_dir: Path, row: dict[str, Any]) -> None:
+    """Append one finished run. Flushed per row, so a killed run loses at most one."""
+    with (Path(out_dir) / CHECKPOINT).open("a") as handle:
+        handle.write(json.dumps(row, default=str) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
+def load_checkpoint(out_dir: Path) -> list[dict[str, Any]]:
+    """Rows already completed in ``out_dir``. A torn last line (killed mid-write) is dropped."""
+    path = Path(out_dir) / CHECKPOINT
+    if not path.exists():
+        return []
+    rows = []
+    for line in path.read_text().splitlines():
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    return rows
+
+
+def segments(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """One entry per run segment (a resume starts a new one), with its git state."""
+    seen: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = row.get("_segment_started_utc") or "unknown"
+        entry = seen.setdefault(
+            key,
+            {
+                "started_utc": key,
+                "git_sha": row.get("git_sha"),
+                "dirty_paths": row.get("_git_dirty_paths"),
+                "runs": 0,
+            },
+        )
+        entry["runs"] += 1
+    return sorted(seen.values(), key=lambda e: e["started_utc"])
 
 
 def _write_csv(path: Path, columns: tuple[str, ...], rows: list[dict[str, Any]]) -> None:
@@ -601,13 +715,25 @@ def run_bench(
     backends = warm_backends()
     instances = {instance_label(p): ProblemInstance.load(p) for p in paths}
 
-    rows: list[dict[str, Any]] = []
+    stamp = started.strftime("%Y%m%dT%H%M%SZ")
+    out_dir = Path(out_dir) if out_dir else default_results_dir() / stamp
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows = load_checkpoint(out_dir)
+    done = {run_key(r) for r in rows}
+    if verbose and rows:
+        print(f"resuming {out_dir}: {len(rows)} runs already done")
+
     for path in paths:
         instance = instances[instance_label(path)]
         for name in names:
             deterministic = name in DETERMINISTIC
-            for seed in (None,) if deterministic else seeds:
+            for seed in seeds_for(name, instance.n, seeds, deterministic):
+                if (path.name, name, seed) in done:
+                    continue
                 row = run_one(name, instance, path, seed, deterministic)
+                row.update(git_sha=git["sha"], _segment_started_utc=started.isoformat())
+                row["_git_dirty_paths"] = git["dirty_paths"]
+                append_checkpoint(out_dir, row)
                 rows.append(row)
                 if verbose:
                     outcome = (
@@ -633,9 +759,6 @@ def run_bench(
             print("penalty study (time-dependent instances)...")
         sweep_rows = penalty_study(instances, seeds, factors, references)
 
-    stamp = started.strftime("%Y%m%dT%H%M%SZ")
-    out_dir = Path(out_dir) if out_dir else default_results_dir() / stamp
-    out_dir.mkdir(parents=True, exist_ok=True)
     _write_csv(out_dir / "results.csv", CSV_COLUMNS, rows)
     _write_csv(out_dir / "summary.csv", SUMMARY_COLUMNS, summary)
     if sweep_rows:
@@ -645,6 +768,8 @@ def run_bench(
     manifest = build_manifest(
         paths, instances, names, seeds, factors, argv or sys.argv, backends, started, elapsed, git
     )
+    manifest["segments"] = segments(rows)
+    manifest["single_seed_above_n"] = SINGLE_SEED_ABOVE_N
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
 
     if verbose:

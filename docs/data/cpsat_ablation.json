@@ -1,0 +1,269 @@
+{
+  "time_limit_s": 30.0,
+  "runs": [
+    {
+      "instance": "iridium33_20260402_planecluster-v1_n20_td30d.npz",
+      "n": 20,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 30.41328237496782,
+      "solver_clock_s": 30.024937,
+      "peak_rss_mb": 767.26953125,
+      "feasible": true,
+      "dv_kms": 3.6722948765544605,
+      "lower_bound_kms": 2.8525625,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 3.6722948765544605,
+      "reason": null,
+      "options": {
+        "warm_start": false,
+        "circuit": false
+      },
+      "load_average_1min": 8.8994140625,
+      "gap_to_best_pct": 22.322073910458315
+    },
+    {
+      "instance": "iridium33_20260402_planecluster-v1_n20_td30d.npz",
+      "n": 20,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 30.557531207916327,
+      "solver_clock_s": 30.089067000000004,
+      "peak_rss_mb": 893.32421875,
+      "feasible": true,
+      "dv_kms": 3.6722948765544605,
+      "lower_bound_kms": 2.8255325,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 3.6722948765544605,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": false
+      },
+      "load_average_1min": 10.8232421875,
+      "gap_to_best_pct": 23.05812591359595
+    },
+    {
+      "instance": "iridium33_20260402_planecluster-v1_n20_td30d.npz",
+      "n": 20,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 30.470537874964066,
+      "solver_clock_s": 30.025730000000003,
+      "peak_rss_mb": 795.59765625,
+      "feasible": true,
+      "dv_kms": 3.6722948765544605,
+      "lower_bound_kms": 2.5815005,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 3.6722948765544605,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": true
+      },
+      "load_average_1min": 11.373046875,
+      "gap_to_best_pct": 29.703343909514718
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n20_td7d.npz",
+      "n": 20,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 19.586791959009133,
+      "solver_clock_s": 19.163465000000002,
+      "peak_rss_mb": 675.58203125,
+      "feasible": true,
+      "dv_kms": 2.646656034497288,
+      "lower_bound_kms": 2.6466475,
+      "proven_optimal": true,
+      "ils_seed1_dv_kms": 2.646656034497288,
+      "reason": null,
+      "options": {
+        "warm_start": false,
+        "circuit": false
+      },
+      "load_average_1min": 11.76318359375,
+      "gap_to_best_pct": 0.0003224634095534863
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n20_td7d.npz",
+      "n": 20,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 18.849679750041105,
+      "solver_clock_s": 18.394311000000002,
+      "peak_rss_mb": 803.5078125,
+      "feasible": true,
+      "dv_kms": 2.646656034497288,
+      "lower_bound_kms": 2.6466475,
+      "proven_optimal": true,
+      "ils_seed1_dv_kms": 2.646656034497288,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": false
+      },
+      "load_average_1min": 11.296875,
+      "gap_to_best_pct": 0.0003224634095534863
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n20_td7d.npz",
+      "n": 20,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 7.712562958011404,
+      "solver_clock_s": 7.2550550000000005,
+      "peak_rss_mb": 542.6171875,
+      "feasible": true,
+      "dv_kms": 2.646656034497288,
+      "lower_bound_kms": 2.6466475,
+      "proven_optimal": true,
+      "ils_seed1_dv_kms": 2.646656034497288,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": true
+      },
+      "load_average_1min": 11.20263671875,
+      "gap_to_best_pct": 0.0003224634095534863
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n30_static.npz",
+      "n": 30,
+      "time_dependent": false,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 30.665905457921326,
+      "solver_clock_s": 30.041114,
+      "peak_rss_mb": 1197.9296875,
+      "feasible": true,
+      "dv_kms": 4.513514369699972,
+      "lower_bound_kms": 2.6431005,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 4.513514369699973,
+      "reason": null,
+      "options": {
+        "warm_start": false,
+        "circuit": false
+      },
+      "load_average_1min": 12.5927734375,
+      "gap_to_best_pct": 41.44029943177747
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n30_static.npz",
+      "n": 30,
+      "time_dependent": false,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 30.876735874917358,
+      "solver_clock_s": 30.122583000000002,
+      "peak_rss_mb": 1577.0546875,
+      "feasible": true,
+      "dv_kms": 4.513514369699972,
+      "lower_bound_kms": 2.5713485,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 4.513514369699973,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": false
+      },
+      "load_average_1min": 11.6982421875,
+      "gap_to_best_pct": 43.030014100278
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n30_static.npz",
+      "n": 30,
+      "time_dependent": false,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 5.609502667095512,
+      "solver_clock_s": 4.722429,
+      "peak_rss_mb": 758.21875,
+      "feasible": true,
+      "dv_kms": 4.513514369699972,
+      "lower_bound_kms": 4.5135005,
+      "proven_optimal": true,
+      "ils_seed1_dv_kms": 4.513514369699973,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": true
+      },
+      "load_average_1min": 10.5078125,
+      "gap_to_best_pct": 0.00030729269557100934
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n40_td3d.npz",
+      "n": 40,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 31.543002165970393,
+      "solver_clock_s": 30.168125000000003,
+      "peak_rss_mb": 2489.78125,
+      "feasible": true,
+      "dv_kms": 8.714531364220305,
+      "lower_bound_kms": 2.5030345,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 5.730778139320159,
+      "reason": null,
+      "options": {
+        "warm_start": false,
+        "circuit": false
+      },
+      "load_average_1min": 9.82666015625,
+      "gap_to_best_pct": 56.322955815962985
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n40_td3d.npz",
+      "n": 40,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 31.803787791985087,
+      "solver_clock_s": 30.325876,
+      "peak_rss_mb": 2500.51171875,
+      "feasible": true,
+      "dv_kms": 5.730778139320159,
+      "lower_bound_kms": 2.3244265,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 5.730778139320159,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": false
+      },
+      "load_average_1min": 9.740234375,
+      "gap_to_best_pct": 59.439600635529985
+    },
+    {
+      "instance": "iridium33_20260928_planecluster-v2_n40_td3d.npz",
+      "n": 40,
+      "time_dependent": true,
+      "solver": "cpsat",
+      "time_limit_s": 30.0,
+      "wall_s": 32.66679095802829,
+      "solver_clock_s": 31.164105000000003,
+      "peak_rss_mb": 2541.125,
+      "feasible": true,
+      "dv_kms": 5.730778139320159,
+      "lower_bound_kms": 4.0317835,
+      "proven_optimal": false,
+      "ils_seed1_dv_kms": 5.730778139320159,
+      "reason": null,
+      "options": {
+        "warm_start": true,
+        "circuit": true
+      },
+      "load_average_1min": 9.4345703125,
+      "gap_to_best_pct": 29.64684023733136
+    }
+  ]
+}

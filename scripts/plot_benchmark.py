@@ -50,9 +50,30 @@ SOLVER_MARKERS = {
     "sa-qubo": "X",
     "qaoa": "*",
 }
+#: Four solvers are variants of one above, and take its hue with a dashed line
+#: and a hollow marker instead of a generated ninth hue: ils is localsearch
+#: plus kicks, sa-perm-cold is sa-perm without the greedy start, highs is the
+#: other time-indexed MIP, qaoa-swap is qaoa with a different mixer.
+VARIANT_OF = {
+    "ils": "localsearch",
+    "sa-perm-cold": "sa-perm",
+    "highs": "cpsat",
+    "qaoa-swap": "qaoa",
+}
+for _variant, _parent in VARIANT_OF.items():
+    SOLVER_COLOURS[_variant] = SOLVER_COLOURS[_parent]
+    SOLVER_MARKERS[_variant] = SOLVER_MARKERS[_parent]
 #: ``brute`` is omitted on purpose: it is the test oracle for ``exact``, agrees
 #: with it wherever it runs, and a ninth hue would be a generated one.
 FIGURE_SOLVERS = tuple(SOLVER_COLOURS)
+
+
+def _mark_style(solver: str) -> dict:
+    """Line and marker for a solver: the parent's hue, dashed and hollow for a variant."""
+    if solver in VARIANT_OF:
+        return {"linestyle": "--", "markerfacecolor": "white", "markeredgewidth": 1.6}
+    return {"linestyle": "-"}
+
 
 INK = "#0b0b0b"
 INK_SOFT = "#52514e"
@@ -119,15 +140,25 @@ def _series(summary: list[dict[str, str]], solver: str, variant: str, key: str):
     rows = [r for r in rows if int(r["feasible_runs"]) > 0]
     rows = [r for r in rows if _number(r[key]) is not None]
     rows.sort(key=lambda r: int(r["n"]))
-    return (
-        [int(r["n"]) for r in rows],
-        [_number(r[key]) for r in rows],
-        [_number(r.get("gap_std_pct")) or 0.0 for r in rows],
-        rows,
-    )
+    ns = sorted({int(r["n"]) for r in rows})
+    if len(ns) == len(rows):
+        return (
+            ns,
+            [_number(r[key]) for r in rows],
+            [_number(r.get("gap_std_pct")) or 0.0 for r in rows],
+            rows,
+        )
+    # Several instances at one N (v2: td3d, td7d, td14d...): the mean over them,
+    # with the spread across instances as the error bar. The per-instance view
+    # is figure_gap_by_instance.
+    at = [[r for r in rows if int(r["n"]) == n] for n in ns]
+    means = [float(np.mean([_number(r[key]) for r in group])) for group in at]
+    spread = [float(np.std([_number(r[key]) for r in group])) for group in at]
+    merged = [dict(group[0], runtime_std_s=str(sd)) for group, sd in zip(at, spread, strict=True)]
+    return ns, means, spread, merged
 
 
-def figure_gap_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
+def figure_gap_vs_n(summary: list[dict[str, str]], out: Path, prefix: str = "bench") -> Path:
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.6), sharey=True)
@@ -149,6 +180,7 @@ def figure_gap_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
                 capsize=3,
                 elinewidth=1,
                 label=solver,
+                **_mark_style(solver),
             )
             # Direct-label only the series that separate from the reference.
             # Five solvers sit on exactly 0.00 here; stacking five labels on one
@@ -170,11 +202,17 @@ def figure_gap_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
         # Beyond N=18 Held-Karp cannot run, so the reference is the best result
         # anything in the run achieved. That is not an optimality gap, and the
         # figure has to say so where a reader is looking.
-        best_known = sorted({int(r["n"]) for r in summary if r["reference_kind"] == "best-known"})
+        best_known = sorted(
+            {
+                int(r["n"])
+                for r in summary
+                if r["reference_kind"] == "best-known" and r["variant"] == variant
+            }
+        )
         if best_known:
             ax.axvspan(min(best_known) - 0.6, max(best_known) + 0.6, color="#f3f1ea", zorder=0)
             ax.annotate(
-                f"N={min(best_known)}: no exact oracle,\ngap is vs best-known",
+                f"N>={min(best_known)}: optimum not proven,\ngap is vs best-known",
                 xy=(0.975, 0.80),
                 xycoords="axes fraction",
                 fontsize=8,
@@ -202,13 +240,13 @@ def figure_gap_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
         color=INK,
     )
     fig.tight_layout(rect=(0, 0.05, 1, 1))
-    path = out / "bench_gap_vs_n.png"
+    path = out / f"{prefix}_gap_vs_n.png"
     fig.savefig(path, dpi=150, facecolor="white")
     plt.close(fig)
     return path
 
 
-def figure_runtime_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
+def figure_runtime_vs_n(summary: list[dict[str, str]], out: Path, prefix: str = "bench") -> Path:
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5.8), sharey=True)
@@ -231,6 +269,7 @@ def figure_runtime_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
                 capsize=3,
                 elinewidth=1,
                 label=solver,
+                **_mark_style(solver),
             )
             ends.append((runtimes[-1], ns[-1], solver, colour))
 
@@ -260,7 +299,8 @@ def figure_runtime_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
         0.055,
         "qaoa is CLASSICAL STATEVECTOR SIMULATION TIME, not quantum runtime, and it only "
         "reaches N=4.\n"
-        "ortools and cpsat burn a configured time limit: a knob, not a measurement.  "
+        "ortools, cpsat and highs burn a configured time limit unless they prove "
+        "optimality: a knob, not a measurement.  "
         "sa-perm is numpy against sa-qubo's compiled C++ at the same proposal count.\n"
         "Laptop wall clock, so treat these as orders of magnitude rather than as "
         "a ranking of implementations.",
@@ -271,7 +311,100 @@ def figure_runtime_vs_n(summary: list[dict[str, str]], out: Path) -> Path:
         linespacing=1.5,
     )
     fig.tight_layout(rect=(0, 0.16, 1, 1))
-    path = out / "bench_runtime_vs_n.png"
+    path = out / f"{prefix}_runtime_vs_n.png"
+    fig.savefig(path, dpi=150, facecolor="white")
+    plt.close(fig)
+    return path
+
+
+#: The headroom question is "does anything beat localsearch, and how far is
+#: anything from a certified bound?". These are the solvers that answer it.
+GAP_AXIS_MAX = 150.0
+HEADROOM_SOLVERS = ("greedy", "localsearch", "ils", "sa-perm", "sa-perm-cold", "cpsat", "highs")
+
+
+def figure_gap_by_instance(summary: list[dict[str, str]], out: Path, prefix: str) -> Path:
+    """Every instance on its own row: each solver's mean gap, and the certified gap.
+
+    Rows are instances (not N), because a family with several time-slot
+    variants per N would otherwise average away exactly the instance where
+    something differs. The grey bar is how far the reference could still be
+    from the optimum: zero means proven (or Held-Karp), a bar means best-known.
+    """
+    import matplotlib.pyplot as plt
+
+    labels = sorted(
+        {r["instance"] for r in summary},
+        key=lambda s: (int(s.split("_")[0][1:]), s.split("_")[1] != "static", s),
+    )
+    head = {r["instance"]: r for r in summary}
+    fig, ax = plt.subplots(figsize=(12, 0.36 * len(labels) + 2.2))
+    y = np.arange(len(labels))[::-1]
+    bound_gap = [_number(head[label].get("reference_bound_gap_pct")) or 0.0 for label in labels]
+    ax.barh(y, bound_gap, height=0.55, color="#e6e5df", edgecolor=GRID, zorder=1)
+    offsets = np.linspace(-0.27, 0.27, len(HEADROOM_SOLVERS))
+    for offset, solver in zip(offsets, HEADROOM_SOLVERS, strict=True):
+        xs, ys = [], []
+        for row_y, label in zip(y, labels, strict=True):
+            rows = [
+                r
+                for r in summary
+                if r["instance"] == label and r["solver"] == solver and int(r["feasible_runs"])
+            ]
+            if rows and _number(rows[0]["gap_mean_pct"]) is not None:
+                gap = _number(rows[0]["gap_mean_pct"])
+                if gap > GAP_AXIS_MAX:
+                    # Off the axis: pinned to the edge and labelled with its value,
+                    # never silently dropped (highs' unfinished incumbents land here).
+                    ax.annotate(
+                        f"{solver} +{gap:.0f}%",
+                        xy=(GAP_AXIS_MAX, row_y + offset),
+                        xytext=(-8, 0),
+                        textcoords="offset points",
+                        fontsize=7,
+                        color=INK_SOFT,
+                        ha="right",
+                        va="center",
+                    )
+                    gap = GAP_AXIS_MAX
+                xs.append(gap)
+                ys.append(row_y + offset)
+        if xs:
+            style = _mark_style(solver)
+            ax.scatter(
+                xs,
+                ys,
+                s=34,
+                marker=SOLVER_MARKERS[solver],
+                facecolors=style.get("markerfacecolor", SOLVER_COLOURS[solver]),
+                edgecolors=SOLVER_COLOURS[solver],
+                linewidths=1.4,
+                label=solver,
+                zorder=3,
+            )
+    kinds = [head[label]["reference_kind"] for label in labels]
+    ax.set_yticks(y)
+    ax.set_yticklabels([f"{label}  ({kind})" for label, kind in zip(labels, kinds, strict=True)])
+    _style(ax)
+    ax.set_xscale("symlog", linthresh=1.0, linscale=0.6)
+    ax.set_xticks([0, 1, 2, 5, 10, 20, 50, 100])
+    ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.set_xlim(-0.1, GAP_AXIS_MAX * 1.08)
+    ax.set_xlabel(
+        "mean gap above the reference (%, symlog below 1). Grey bar: reference minus "
+        "certified lower bound",
+        fontsize=9,
+        color=INK_SOFT,
+    )
+    # Outside the plot: inside, it sat on exactly the markers pinned at the edge.
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8, frameon=False)
+    fig.suptitle(
+        f"{prefix}: does anything beat localsearch, and is the reference proven?",
+        fontsize=12,
+        color=INK,
+    )
+    fig.tight_layout()
+    path = out / f"{prefix}_gap_by_instance.png"
     fig.savefig(path, dpi=150, facecolor="white")
     plt.close(fig)
     return path
@@ -552,6 +685,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("results", type=Path, help="a directory written by `dextrivia bench`")
     parser.add_argument("--out-dir", type=Path, default=None, help="default: docs/figures")
     parser.add_argument(
+        "--prefix",
+        default="bench",
+        help="figure filename prefix, e.g. bench_v2 (default bench, the v1 canonical run)",
+    )
+    parser.add_argument(
         "--sequence-instance",
         default="n10_td30d",
         help="which instance the route figure draws (default n10_td30d)",
@@ -572,12 +710,16 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out_dir or figure_dir()
     out.mkdir(parents=True, exist_ok=True)
 
+    from dextrivia.snapshots import default_snapshot_dir
+
     written = [
-        figure_gap_vs_n(summary, out),
-        figure_runtime_vs_n(summary, out),
+        figure_gap_vs_n(summary, out, args.prefix),
+        figure_runtime_vs_n(summary, out, args.prefix),
+        figure_gap_by_instance(summary, out, args.prefix),
         figure_penalty(sweep, out),
-        figure_best_sequence(results, args.sequence_instance, snapshot_name, out),
     ]
+    if (default_snapshot_dir() / snapshot_name).exists():  # not for a merged v3 pool
+        written.append(figure_best_sequence(results, args.sequence_instance, snapshot_name, out))
     for path in written:
         print(f"wrote {path}" if path else "skipped a figure: no rows for it in this run")
     return 0

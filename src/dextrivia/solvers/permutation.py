@@ -26,6 +26,7 @@ produce plausible-looking sequences that do not optimise the stated objective.
 
 from __future__ import annotations
 
+import functools
 import time
 from typing import Any
 
@@ -37,6 +38,10 @@ from dextrivia.solvers.greedy import GreedySolver
 __all__ = [
     "LocalSearchSolver",
     "PermutationAnnealingSolver",
+    "ColdPermutationAnnealingSolver",
+    "IteratedLocalSearchSolver",
+    "neighbourhood",
+    "double_bridge",
     "path_cost_array",
     "two_opt",
     "or_opt",
@@ -191,6 +196,170 @@ class LocalSearchSolver:
         )
 
 
+@functools.cache
+def neighbourhood(n: int) -> np.ndarray:
+    """Every 2-opt and or-opt (runs of 1-3) move, as rows of position indices.
+
+    Row k is a permutation of ``range(n)``; ``sequence[rows]`` is every
+    neighbour of ``sequence`` at once. Moves are positional, so the table is
+    built once per N and reused for every sequence.
+    """
+    base = np.arange(n)
+    rows = []
+    for i in range(n - 1):
+        for j in range(i + 1, n):
+            row = base.copy()
+            row[i : j + 1] = row[i : j + 1][::-1]
+            rows.append(row)
+    for length in (1, 2, 3):
+        if length >= n:
+            break
+        for start in range(n - length + 1):
+            rest = np.concatenate([base[:start], base[start + length :]])
+            for insert in range(len(rest) + 1):
+                if insert != start:
+                    rows.append(
+                        np.concatenate([rest[:insert], base[start : start + length], rest[insert:]])
+                    )
+    return np.unique(np.array(rows), axis=0)
+
+
+def batch_costs(costs: np.ndarray, time_dependent: bool, candidates: np.ndarray) -> np.ndarray:
+    """``path_cost_array`` for every row of ``candidates`` in one call.
+
+    Every candidate is priced in full, legs 0..N-2, so a move that shifts
+    positions re-prices the whole suffix -- the time-slotted rule in the module
+    docstring, applied K rows at a time.
+    """
+    tail, head = candidates[:, :-1], candidates[:, 1:]
+    if time_dependent:
+        return costs[np.arange(tail.shape[1]), tail, head].sum(axis=1)
+    return costs[tail, head].sum(axis=1)
+
+
+def _batch_descend(
+    costs: np.ndarray, time_dependent: bool, sequence: np.ndarray, cost: float
+) -> tuple[np.ndarray, float]:
+    """Best-improvement descent over ``neighbourhood`` to a local optimum."""
+    moves = neighbourhood(len(sequence))
+    while True:
+        candidates = sequence[moves]
+        values = batch_costs(costs, time_dependent, candidates)
+        k = int(np.argmin(values))
+        if values[k] >= cost - 1e-12:
+            return sequence, cost
+        sequence, cost = candidates[k], float(values[k])
+
+
+def double_bridge(sequence: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    """Open-path double bridge: A B C D -> A C B D, three random cut points.
+
+    The classic ILS kick. No sequence of 2-opt or or-opt moves undoes it in one
+    step, which is the point: it moves the search to a different basin.
+    """
+    n = len(sequence)
+    a, b, c = np.sort(rng.choice(np.arange(1, n), size=3, replace=False))
+    return np.concatenate([sequence[:a], sequence[b:c], sequence[a:b], sequence[c:]])
+
+
+class IteratedLocalSearchSolver:
+    """Iterated local search: localsearch, then kick + descend, many times.
+
+    The instrument for *hidden headroom*. ``localsearch`` stops at the first
+    2-opt/or-opt local optimum; this one escapes it with a double-bridge kick,
+    re-descends, and keeps the result if it is no worse (so it can walk across
+    plateaus). After ``restart_after`` kicks without a new best it restarts
+    from a random permutation: at small N a double bridge moves segments of 1-3
+    objects, which a single or-opt move undoes, so without restarts the search
+    can fall back into the same basin every time (measured: 200 of 200 kicks on
+    a random N=8 instance). If it ever finds a path cheaper than
+    ``localsearch``, the instance had headroom a millisecond heuristic missed.
+
+    Budget is a kick COUNT, so a run is reproducible from its seed on any
+    machine; ``time_limit_s`` is a safety cap, and whether it bound is recorded.
+    Every kick is fully re-priced (``batch_costs``), so time-slotted costs are
+    optimised correctly. Cannot be worse than ``localsearch``: it starts there
+    and only ever replaces the incumbent with something strictly cheaper.
+    """
+
+    name = "ils"
+
+    def __init__(
+        self, kicks: int = 2000, restart_after: int = 50, time_limit_s: float = 30.0
+    ) -> None:
+        self.kicks = int(kicks)
+        self.restart_after = int(restart_after)
+        self.time_limit_s = float(time_limit_s)
+
+    def solve(self, instance: ProblemInstance, seed: int | None = None) -> Solution:
+        t0 = time.perf_counter()
+        n = instance.n
+        start = LocalSearchSolver().solve(instance)
+        if n < 4:  # a double bridge needs three interior cut points
+            return Solution(
+                sequence=start.sequence,
+                total_dv_kms=start.total_dv_kms,
+                runtime_s=time.perf_counter() - t0,
+                solver_name=self.name,
+                feasible=True,
+                metadata={"start_dv_kms": start.total_dv_kms, "kicks_run": 0, "seed": seed},
+            )
+        costs, td = instance.costs, instance.time_dependent
+        rng = np.random.default_rng(seed)
+        current = np.asarray(start.sequence)
+        current, current_cost = _batch_descend(
+            costs, td, current, path_cost_array(costs, td, current)
+        )
+        best, best_cost = current.copy(), current_cost
+        improvements, best_at_kick, kicks_run, capped = 0, 0, 0, False
+        restarts, stale = 0, 0
+        for kick in range(1, self.kicks + 1):
+            if time.perf_counter() - t0 > self.time_limit_s:
+                capped = True
+                break
+            kicks_run = kick
+            stale += 1
+            if stale > self.restart_after:
+                restarts, stale = restarts + 1, 0
+                current = rng.permutation(n)
+                current, current_cost = _batch_descend(
+                    costs, td, current, path_cost_array(costs, td, current)
+                )
+            candidate = double_bridge(current, rng)
+            candidate, cost = _batch_descend(
+                costs, td, candidate, path_cost_array(costs, td, candidate)
+            )
+            if cost <= current_cost + 1e-12:
+                current, current_cost = candidate, cost
+            if cost < best_cost - 1e-12:
+                best, best_cost = candidate.copy(), cost
+                improvements += 1
+                best_at_kick, stale = kick, 0
+        return Solution(
+            sequence=tuple(int(i) for i in best),
+            total_dv_kms=float(best_cost),
+            runtime_s=time.perf_counter() - t0,
+            solver_name=self.name,
+            feasible=True,
+            metadata={
+                "start": "localsearch",
+                "start_dv_kms": start.total_dv_kms,
+                "kicks": self.kicks,
+                "kicks_run": kicks_run,
+                "time_limit_s": self.time_limit_s,
+                "time_cap_hit": capped,
+                "improvements_over_start": improvements,
+                "best_found_at_kick": best_at_kick,
+                "neighbourhood_size": len(neighbourhood(n)),
+                "perturbation": "double-bridge",
+                "restart_after": self.restart_after,
+                "restarts": restarts,
+                "acceptance": "not worse than current",
+                "seed": seed,
+            },
+        )
+
+
 class PermutationAnnealingSolver:
     """Simulated annealing over sequences. The control for ``sa-qubo``.
 
@@ -298,3 +467,19 @@ class PermutationAnnealingSolver:
                 "seed": seed,
             },
         )
+
+
+class ColdPermutationAnnealingSolver(PermutationAnnealingSolver):
+    """``sa-perm`` with every restart from a random permutation, no greedy start.
+
+    The control for ``sa-perm``'s own head start. ``sa-perm``'s first restart
+    begins at the greedy sequence, so it cannot do worse than greedy; this one
+    has to find everything itself. The gap between the two is what the head
+    start was worth.
+    """
+
+    name = "sa-perm-cold"
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("start_from_greedy", False)
+        super().__init__(**kwargs)
