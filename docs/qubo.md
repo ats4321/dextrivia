@@ -397,6 +397,28 @@ sampler might later exploit. On this problem it is a **net loss**: it takes an
 objective that plain annealing optimises exactly and makes it one that the same
 annealer, given more time, cannot.
 
+### Historical: more sweeps did not close the N=15 gap (2026-09-23)
+
+Salvaged from the unmerged PR #4 (commit `848ba1e`). It **predates the
+canonical 5-seed run above** and is a single seed (11), so read it as a
+measurement of budget sensitivity, not as a result to rank on. Instance
+`planecluster-v1_n15_td30d` (unchanged since; sha256-pinned), reference 2.1855
+km/s (Held-Karp), `sa-qubo` at the default penalty (`DEFAULT_PENALTY_SAFETY =
+1.1`), raw feasibility 1.00 throughout:
+
+| reads × sweeps | runtime | gap to optimum |
+|---|---|---|
+| 1000 × 2000 | 4 s | +41.56% |
+| 2000 × 20000 | 86 s | +17.12% |
+| 2000 × 100000 | 458 s | +19.55% |
+
+The first row is the canonical budget; its five-seed mean is +22.33%, so the
++41.56% was an unlucky draw and most of the apparent first step is seed noise.
+What survives is the last two rows: 20–100× the canonical sampling effort still
+leaves the QUBO route at 17–20% above the optimum that `sa-perm` and
+`localsearch` reach in seconds and milliseconds respectively. More compute does
+not rescue the encoding.
+
 ### And the classical bar is higher than anything here reaches
 
 `localsearch` — greedy start, 2-opt and or-opt to a local optimum — matches the

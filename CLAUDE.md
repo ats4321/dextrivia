@@ -176,6 +176,9 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
   * A second snapshot, `iridium33_20260928.json`, is now the `dextrivia build`
     default. Every quoted CLI example pins `--snapshot`, and
     `tests/test_readme_example.py` runs the README's.
+* 2026-10-05 — docs only, **no change to `core.py`**: the 2026-09-23 single-seed
+  `sa-qubo` effort sweep on v1 `n15_td30d` (+17–20% at 20–100× budget), salvaged
+  from unmerged PR #4 into `docs/qubo.md` §7 as a dated historical measurement.
 
 * 2026-09-30 — headroom workspace: certified lower bounds, `ils`,
   `sa-perm-cold`, v3 `collision-pair` family, resumable bench. **No change to
