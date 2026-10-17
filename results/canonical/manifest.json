@@ -1,17 +1,12 @@
 {
-  "timestamp_utc": "2026-09-25T08:38:58.051198+00:00",
-  "elapsed_s": 1434.237734079361,
-  "command": ".venv/bin/dextrivia bench --out results/canonical",
+  "timestamp_utc": "2026-10-17T05:27:13.056564+00:00",
+  "elapsed_s": 2117.3882858753204,
+  "command": "/Users/Atiksh1/conductor/workspaces/dextrivia/ulaanbaatar/.venv/bin/dextrivia bench --out results/canonical",
   "git": {
-    "sha": "53fd3a5cfbe5af8c6992e924240d1fa0e9cb44f4",
-    "branch": "benchmark-harness-and-readme",
-    "dirty": true,
-    "dirty_paths": [
-      "results/canonical/manifest.json",
-      "results/canonical/penalty_sweep.csv",
-      "results/canonical/results.csv",
-      "results/canonical/summary.csv"
-    ]
+    "sha": "fa5b562b5ccd369f500354276581432dc50ce277",
+    "branch": "benchmark-headroom-bounds",
+    "dirty": false,
+    "dirty_paths": []
   },
   "snapshots": [
     "iridium33_20260402.json"
@@ -404,6 +399,16 @@
       "penalty": null,
       "max_n": 4
     },
+    "qaoa-swap": {
+      "class": "QAOASwapSolver",
+      "reps": 2,
+      "shots": 4096,
+      "maxiter": 300,
+      "restarts": 3,
+      "backend": "subspace",
+      "initial_state": "uniform",
+      "max_n": 9
+    },
     "ortools": {
       "class": "ORToolsRoutingSolver",
       "time_limit_s": 5.0,
@@ -425,13 +430,35 @@
       "class": "CPSATSolver",
       "time_limit_s": 60.0,
       "workers": 8,
-      "max_n": 40
+      "max_n": 50,
+      "warm_start": true,
+      "circuit": true
+    },
+    "highs": {
+      "class": "HiGHSSolver",
+      "time_limit_s": 60.0,
+      "max_n": 60
+    },
+    "ils": {
+      "class": "IteratedLocalSearchSolver",
+      "kicks": 2000,
+      "restart_after": 50,
+      "time_limit_s": 30.0
+    },
+    "sa-perm-cold": {
+      "class": "ColdPermutationAnnealingSolver",
+      "time_limit_s": 1.0,
+      "restarts": 4,
+      "cooling": 0.995,
+      "start_from_greedy": false,
+      "max_iterations": null
     }
   },
   "deterministic_solvers": [
     "brute",
     "exact",
-    "greedy"
+    "greedy",
+    "highs"
   ],
   "seeds": [
     1,
@@ -475,5 +502,16 @@
     "cpu_count": 15,
     "python": "3.11.15",
     "python_implementation": "CPython"
+  },
+  "segments": [
+    {
+      "started_utc": "2026-10-17T05:27:13.056564+00:00",
+      "git_sha": "fa5b562b5ccd369f500354276581432dc50ce277",
+      "dirty_paths": [],
+      "runs": 588
+    }
+  ],
+  "single_seed_above_n": {
+    "cpsat": 20
   }
 }
