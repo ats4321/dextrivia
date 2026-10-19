@@ -139,6 +139,8 @@ CSV_COLUMNS = (
     "optimal_sample_probability",
     "uniform_optimal_probability",
     "uniform_feasible_probability",
+    "log10_uniform_optimal_probability",
+    "log10_uniform_feasible_probability",
     "num_optimal_sequences",
     "num_samples",
     "num_variables",
@@ -369,6 +371,29 @@ def run_one(
     return row
 
 
+def log10_uniform_probability(log_count: float, n: int) -> float:
+    """log10 of ``count / 2**(N*N)`` from ``ln(count)``: the chance a uniformly random
+    N*N bitstring lands in a set of that size.
+
+    Computed in log space because ``2.0 ** (N*N)`` overflows a float from N=32;
+    the first canonical v2 run crashed on exactly that at N=40, after every
+    solver run had finished.
+    """
+    return (log_count - n * n * math.log(2.0)) / math.log(10.0)
+
+
+def _representable(log10_p: float | None) -> float | None:
+    """The probability as a float, or None when it is below float range (~1e-308).
+
+    None rather than 0.0: the probability is not zero, it is too small for a
+    float, and a 0.0 in a CSV reads as "impossible". The log10 column next to
+    it always carries the value.
+    """
+    if log10_p is None or log10_p < -307.0:
+        return None
+    return 10.0**log10_p
+
+
 def add_references(rows: list[dict[str, Any]], instances: dict[str, ProblemInstance]) -> None:
     """Fill in reference, gap, and the sampler-vs-chance columns. In place.
 
@@ -436,15 +461,17 @@ def add_references(rows: list[dict[str, Any]], instances: dict[str, ProblemInsta
             # best-of-shots result into a claim about the algorithm: at N=4
             # there are 24 permutations among 2**16 bitstrings, and best-of-4096
             # plus repair finds the optimum from pure noise.
-            total_bitstrings = 2.0 ** (instance.n * instance.n)
-            permutations = float(math.factorial(instance.n))
             row["mean_random_permutation_dv_kms"] = random_mean
             row["random_permutation_method"] = random_method
-            row["uniform_feasible_probability"] = permutations / total_bitstrings
+            feasible_log10 = log10_uniform_probability(math.lgamma(instance.n + 1), instance.n)
+            row["log10_uniform_feasible_probability"] = feasible_log10
+            row["uniform_feasible_probability"] = _representable(feasible_log10)
             row["num_optimal_sequences"] = optima
-            row["uniform_optimal_probability"] = (
-                optima / total_bitstrings if optima is not None else None
+            optimal_log10 = (
+                log10_uniform_probability(math.log(optima), instance.n) if optima else None
             )
+            row["log10_uniform_optimal_probability"] = optimal_log10
+            row["uniform_optimal_probability"] = _representable(optimal_log10)
             hit_optimum = (
                 row["best_raw_dv_kms"] is not None
                 and reference is not None
@@ -617,6 +644,22 @@ def segments(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(seen.values(), key=lambda e: e["started_utc"])
 
 
+def code_changes_since_runs(
+    segment_list: list[dict[str, Any]], git: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """For every segment run at a different commit than this one, what changed in src/.
+
+    A resumed run can write its CSVs at a later commit than the one that ran the
+    solvers. That is fine only if the later commits did not touch anything a
+    number depends on, so the manifest shows the diff instead of asserting it.
+    """
+    changes = []
+    for sha in sorted({s["git_sha"] for s in segment_list if s.get("git_sha")} - {git["sha"]}):
+        stat = _git("diff", "--stat", f"{sha}..{git['sha']}", "--", "src/")
+        changes.append({"runs_at": sha, "written_at": git["sha"], "src_diff_stat": stat})
+    return changes
+
+
 def _write_csv(path: Path, columns: tuple[str, ...], rows: list[dict[str, Any]]) -> None:
     with path.open("w", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(columns), extrasaction="ignore")
@@ -769,6 +812,7 @@ def run_bench(
         paths, instances, names, seeds, factors, argv or sys.argv, backends, started, elapsed, git
     )
     manifest["segments"] = segments(rows)
+    manifest["code_changes_since_runs"] = code_changes_since_runs(manifest["segments"], git)
     manifest["single_seed_above_n"] = SINGLE_SEED_ABOVE_N
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, default=str) + "\n")
 

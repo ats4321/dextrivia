@@ -124,3 +124,60 @@ def test_a_bound_above_the_reference_is_a_bug_and_raises():
     rows = [_row("exact", 1.0), _row("cpsat", 1.0, bound=1.1)]
     with pytest.raises(ValueError, match="exceeds"):
         add_references(rows, {"a": random_instance(4, 3)})
+
+
+@pytest.mark.parametrize("n", [40, 60])
+def test_sampler_baselines_survive_n_where_2_to_the_n_squared_overflows(n):
+    """The first canonical v2 run crashed here at N=40, after every solver had run.
+
+    2**(N*N) overflows a float from N=32. The probability is reported in log10
+    always, and as a float only where one can hold it -- never as a misleading 0.0.
+    """
+    import math
+
+    from dextrivia.bench import log10_uniform_probability
+
+    instance = random_instance(n, 1)
+    rows = [
+        _row("greedy", 5.0),
+        {
+            **_row("sa-qubo", 6.0),
+            "num_samples": 500,
+            "best_raw_dv_kms": 6.0,
+            "_best_raw_sample_count": 3,
+        },
+    ]
+    add_references(rows, {"a": instance})
+    sampler = rows[1]
+    expected = (math.lgamma(n + 1) - n * n * math.log(2)) / math.log(10)
+    assert sampler["log10_uniform_feasible_probability"] == pytest.approx(expected)
+    assert sampler["uniform_feasible_probability"] is None  # below float range, not 0.0
+    assert sampler["num_optimal_sequences"] is None  # not enumerable at this N
+    assert sampler["uniform_optimal_probability"] is None
+    assert sampler["optimal_sample_probability"] == 0.0  # it did not hit the reference
+    assert log10_uniform_probability(math.log(24), 4) == pytest.approx(math.log10(24 / 2**16))
+
+
+def test_small_n_baselines_are_unchanged_by_the_log_space_rewrite():
+    instance = random_instance(4, 3)
+    rows = [{**_row("exact", 1.0)}, {**_row("qaoa", 1.0), "num_samples": 10}]
+    rows[1].update(best_raw_dv_kms=1.0, _best_raw_sample_count=2)
+    add_references(rows, {"a": instance})
+    assert rows[1]["uniform_feasible_probability"] == pytest.approx(24 / 2**16)
+
+
+def test_manifest_shows_src_changes_when_rows_come_from_an_older_commit(monkeypatch):
+    seen = {}
+
+    def fake_git(*args):
+        seen["args"] = args
+        return " src/dextrivia/bench.py | 3 ++-"
+
+    monkeypatch.setattr(bench, "_git", fake_git)
+    segments = [{"git_sha": "old"}, {"git_sha": "new"}]
+    changes = bench.code_changes_since_runs(segments, {"sha": "new"})
+    assert changes == [
+        {"runs_at": "old", "written_at": "new", "src_diff_stat": " src/dextrivia/bench.py | 3 ++-"}
+    ]
+    assert seen["args"] == ("diff", "--stat", "old..new", "--", "src/")
+    assert bench.code_changes_since_runs([{"git_sha": "new"}], {"sha": "new"}) == []
