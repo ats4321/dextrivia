@@ -457,6 +457,15 @@ network access is required to reproduce any number in this README.
 | `penalty_sweep.csv` | QUBO feasibility and quality against penalty weight |
 | `manifest.json` | git SHA, per-instance sha256, library versions, CPU, seeds |
 
+**`results/canonical/penalty_sweep.csv` is from the original v1 run at
+`fa5b562`, penalty study included.** That directory's `manifest.json`
+`command` shows `--no-penalty-study`, but only because the other CSVs and the
+manifest were regenerated later by a resume that ran no solver, to add the
+`log10_uniform_*` columns. The flag stopped the penalty study, which isn't
+checkpointed, from being re-sampled. `penalty_sweep.csv` was left
+byte-identical, and the manifest's `notes` field says so. The v2 and v3 runs
+have no penalty study by design.
+
 ---
 
 ## Repository layout

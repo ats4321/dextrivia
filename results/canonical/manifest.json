@@ -2,6 +2,9 @@
   "timestamp_utc": "2026-10-20T07:13:20.982730+00:00",
   "elapsed_s": 8.22074007987976,
   "command": "/Users/Atiksh1/conductor/workspaces/dextrivia/ulaanbaatar/.venv/bin/dextrivia bench --out results/canonical --no-penalty-study",
+  "notes": [
+    "penalty_sweep.csv in this directory comes from the ORIGINAL v1 run at commit fa5b562 (`dextrivia bench --out results/canonical`, penalty study included; 8 factors x 5 seeds over the 6 time-dependent instances). The `command` above carries --no-penalty-study only because results.csv/summary.csv/manifest.json were later rewritten by a resume at 4a340e3 to add the log10_uniform_* columns; that resume ran no solver, and --no-penalty-study kept the uncheckpointed penalty study from re-sampling. penalty_sweep.csv was left byte-identical. The study was not skipped."
+  ],
   "git": {
     "sha": "4a340e345f886067ad918763b6257644fcf11e9b",
     "branch": "benchmark-headroom-bounds",
