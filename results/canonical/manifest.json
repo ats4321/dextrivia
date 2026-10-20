@@ -1,9 +1,9 @@
 {
-  "timestamp_utc": "2026-10-17T05:27:13.056564+00:00",
-  "elapsed_s": 2117.3882858753204,
-  "command": "/Users/Atiksh1/conductor/workspaces/dextrivia/ulaanbaatar/.venv/bin/dextrivia bench --out results/canonical",
+  "timestamp_utc": "2026-10-20T07:13:20.982730+00:00",
+  "elapsed_s": 8.22074007987976,
+  "command": "/Users/Atiksh1/conductor/workspaces/dextrivia/ulaanbaatar/.venv/bin/dextrivia bench --out results/canonical --no-penalty-study",
   "git": {
-    "sha": "fa5b562b5ccd369f500354276581432dc50ce277",
+    "sha": "4a340e345f886067ad918763b6257644fcf11e9b",
     "branch": "benchmark-headroom-bounds",
     "dirty": false,
     "dirty_paths": []
@@ -509,6 +509,13 @@
       "git_sha": "fa5b562b5ccd369f500354276581432dc50ce277",
       "dirty_paths": [],
       "runs": 588
+    }
+  ],
+  "code_changes_since_runs": [
+    {
+      "runs_at": "fa5b562b5ccd369f500354276581432dc50ce277",
+      "written_at": "4a340e345f886067ad918763b6257644fcf11e9b",
+      "src_diff_stat": "src/dextrivia/bench.py | 54 +++++++++++++++++++++++++++++++++++++++++++++-----\n 1 file changed, 49 insertions(+), 5 deletions(-)"
     }
   ],
   "single_seed_above_n": {
