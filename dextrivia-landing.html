@@ -268,7 +268,9 @@ uv run python scripts/results_tables.py results/my-v1 results/my-v2 results/my-v
     seeds.</li>
     <li><strong>Six references are best-known, not proven.</strong> Four v3 time-dependent
     instances at N ≥ 20 and v2 <code>n40_td3d</code> carry certified gaps, and v3
-    <code>n60_static</code> is certified only by the pre-registered untimed bound, not by the run.</li>
+    <code>n60_static</code> is certified only by the pre-registered untimed bound
+    (<code>lp_bound_dv</code> in <code>docs/data/instance_diagnostics.json</code>, committed before
+    any solver ran on v3), not by the run.</li>
     <li><strong>The Cosmos-2251 half of v3 has no measured propagation horizon.</strong> The
     177-day horizon was measured on Iridium-33 only, and crossing 12° of inclination between the
     clouds (~1.6 km/s) is not a realistic mission; v3 exists to test solvers.</li>

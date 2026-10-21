@@ -148,8 +148,11 @@ Notes on v3:
   see the open items in the PR.
 * **`n60_static` is certified optimal, just not by the benchmark run.** The
   bench's `highs` (60 s) stopped at a bound of 7.9255 km/s. The pre-registered
-  untimed cut LP in `docs/data/instance_diagnostics.json` gives 8.4777395,
-  which is the best-known path minus the 1e-6 km/s safety margin.
+  untimed cut LP gives 8.47773953 km/s, which is the best-known path minus the
+  1e-6 km/s safety margin. It is recorded in
+  [`docs/data/instance_diagnostics.json`](docs/data/instance_diagnostics.json),
+  at `v3 → instances → label "n60_static" → lp_bound_dv`, and was committed in
+  `2c74b46` before any solver ran on v3.
 * `ortools` (static instances only) is not in the table. It ties the reference
   on every v1 and v2 static instance. On v3 static it is +2.24% at N=20,
   +1.41% at N=40, +3.66% at N=50 and +0.42% at N=60.
