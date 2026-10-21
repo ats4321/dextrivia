@@ -229,6 +229,22 @@ Optional heavy dependencies go in `[project.optional-dependencies]` extras
   * **`scripts/plot_benchmark.py`**: the new solvers take their parent's hue,
     dashed and hollow, instead of a ninth hue. It adds `--prefix` and a
     per-instance gap/bound figure.
+* 2026-10-21 — canonical runs for all three families committed, with **no
+  change to `core.py`**:
+  * The runs: `results/canonical/` (v1), `results/canonical-v2/` and
+    `results/canonical-v3/`. All three ran the same solver code. v1 and v2 ran
+    at `fa5b562` and v3 at `203f4e9`; the only `src/` change between them is
+    post-processing in `bench.py`, and each manifest records it in
+    `code_changes_since_runs`.
+  * `bench.py` computes the chance baselines in log space and adds the
+    `log10_uniform_*` columns (v2 crashed on `2.0 ** (N*N)` at N=40).
+  * New `scripts/results_tables.py` prints every README results table from the
+    `summary.csv` files, so no table is typed by hand.
+  * Open: `bench.py` reads `feasibility_is_structural`, but `qaoa-swap` writes
+    `feasibility_measured`, so that column is empty for it.
+  * Open: `PROVEN_TOLERANCE_KMS` (1e-5) barely exceeds cpsat's own rounding
+    margin at N=20 (9.5e-6), which left v3 `n20_td3d` best-known at a 0.00015%
+    certified gap.
 
 ## Benchmark
 

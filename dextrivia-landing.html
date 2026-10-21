@@ -84,7 +84,8 @@
     <h1>Dextrivia
       <span class="sub">An honest benchmark of classical, quantum-inspired and quantum
       solvers on a real orbital-debris sequencing problem. Every number below comes from
-      one committed benchmark run, and the run reproduces from a clean clone.</span>
+      three committed benchmark runs, one per instance family, and each reproduces from a
+      clean clone.</span>
     </h1>
   </div>
 </header>
@@ -92,83 +93,76 @@
 <main class="wrap">
 
   <div class="stats">
-    <div class="stat"><div class="v">0</div><div class="k">quantum or quantum-inspired solvers that beat the classical baselines</div></div>
-    <div class="stat"><div class="v">N=4</div><div class="k">largest instance QAOA can reach, against N=18 for an exact 1962 dynamic program</div></div>
-    <div class="stat"><div class="v">396</div><div class="k">solver runs in the committed benchmark, 88 of them recorded misses</div></div>
-    <div class="stat"><div class="v">3</div><div class="k">classical solvers tying the reference on every instance; the QUBO annealer ties none above N=5</div></div>
+    <div class="stat"><div class="v">0</div><div class="k">quantum or quantum-inspired solvers that beat the classical baselines, on any of 56 instances</div></div>
+    <div class="stat"><div class="v">16 / 21</div><div class="k">static instances where greedy is <em>provably</em> optimal; within 0.66% on the rest</div></div>
+    <div class="stat"><div class="v">1 / 56</div><div class="k">instances where any solver beats a millisecond local search (by 2.63%)</div></div>
+    <div class="stat"><div class="v">2,688</div><div class="k">solver runs in the three committed runs, 674 of them recorded refusals with a reason</div></div>
   </div>
 
   <h2>The result</h2>
 
-  <figure>
-    <img src="docs/figures/bench_gap_vs_n.png" alt="Gap above the reference for each solver against problem size, on static and time-slotted costs. sa-qubo degrades steeply with N while classical solvers stay at zero.">
-    <figcaption>Gap above the reference, mean over 5 seeds, error bars 1 s.d. The reference is
-    the exact Held-Karp optimum wherever it could be computed, and the best result any solver
-    achieved at N=20, where it could not — labelled <span class="tag">best-known</span> there,
-    because a gap measured against the best thing found is not an optimality gap.</figcaption>
-  </figure>
-
-  <p class="lead">Three classical solvers tie the reference on all twelve instances:
-  <code>localsearch</code>, <code>cpsat</code> and <code>sa-perm</code>. The QUBO-based annealer
-  is the only solver in the benchmark that fails, and QAOA cannot leave N=4.</p>
+  <p class="lead"><strong>Real breakup clouds give near-one-dimensional instances, and on them
+  greedy is often provably optimal.</strong> That is the finding, not a footnote. A plane-cluster
+  of Iridium-33 debris shares one inclination, so plane angle is RAAN difference: visiting the
+  objects in RAAN order — a sort — meets a certified lower bound on 8 of the 9 static v2
+  instances. Adding the other half of the collision (Cosmos-2251, 74° against 86.4°) gives
+  <em>two strips crossed once</em>: sweeping each cloud in RAAN order is within 0–1.18% of a
+  certified bound on every static v3 instance. The diagnostics were committed before any solver
+  ran on v3.</p>
 
   <table>
     <thead><tr>
-      <th>instance</th><th class="num">N</th><th class="num">reference (km/s)</th>
-      <th class="num">greedy</th><th class="num">localsearch</th><th class="num">cpsat</th>
-      <th class="num">ortools</th><th class="num">sa-perm</th><th class="num">sa-qubo</th><th class="num">qaoa</th>
+      <th>family</th><th class="num">instances</th><th class="num">exact</th><th class="num">proven</th>
+      <th class="num">best-known</th><th class="num">greedy provably optimal (static)</th>
+      <th class="num">instances where anything beats localsearch</th><th class="num">worst sa-qubo gap</th>
     </tr></thead>
     <tbody>
-      <tr><td>n4_static</td><td class="num">4</td><td class="num">0.5946</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
-      <tr><td>n5_static</td><td class="num">5</td><td class="num">0.8296</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
-      <tr><td>n8_static</td><td class="num">8</td><td class="num">1.0824</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.61%</td><td class="num">refused</td></tr>
-      <tr><td>n10_static</td><td class="num">10</td><td class="num">1.3268</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+11.64%</td><td class="num">refused</td></tr>
-      <tr><td>n15_static</td><td class="num">15</td><td class="num">2.0151</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+63.57%</td><td class="num">refused</td></tr>
-      <tr><td>n20_static <span class="tag">best-known</span></td><td class="num">20</td><td class="num">2.4485</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+121.04%</td><td class="num">refused</td></tr>
-      <tr><td>n4_td30d</td><td class="num">4</td><td class="num">0.5205</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
-      <tr><td>n5_td30d</td><td class="num">5</td><td class="num">0.8314</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td></tr>
-      <tr><td>n8_td30d</td><td class="num">8</td><td class="num">1.1124</td><td class="num">+5.37%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+3.30%</td><td class="num">refused</td></tr>
-      <tr><td>n10_td30d</td><td class="num">10</td><td class="num">1.5165</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+14.65%</td><td class="num">refused</td></tr>
-      <tr><td>n15_td30d</td><td class="num">15</td><td class="num">2.1855</td><td class="num">+5.18%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+47.20%</td><td class="num">refused</td></tr>
-      <tr><td>n20_td30d <span class="tag">best-known</span></td><td class="num">20</td><td class="num">3.6723</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">refused</td><td class="num">+0.00%</td><td class="num">+108.17%</td><td class="num">refused</td></tr>
+      <tr><td>v1 <code>planecluster-v1</code></td><td class="num">12</td><td class="num">10</td><td class="num">2</td><td class="num">0</td><td class="num">6 of 6</td><td class="num">0</td><td class="num">+121%</td></tr>
+      <tr><td>v2 <code>planecluster-v2</code></td><td class="num">31</td><td class="num">21</td><td class="num">9</td><td class="num">1</td><td class="num">8 of 9</td><td class="num">0</td><td class="num">+353%</td></tr>
+      <tr><td>v3 <code>collisionpair-v3</code></td><td class="num">13</td><td class="num">3</td><td class="num">5</td><td class="num">5</td><td class="num">2 of 6</td><td class="num">1</td><td class="num">+299%</td></tr>
     </tbody>
   </table>
-  <p style="font-size:0.86rem"><code>refused</code> is a recorded miss with a stated reason, not a
-  crash and not a blank: <code>qaoa</code> above N=4, <code>ortools</code> on every time-dependent
-  instance, <code>exact</code> above N=18.</p>
+  <p style="font-size:0.86rem"><span class="tag">exact</span> Held-Karp ran.
+  <span class="tag">proven</span> a certified lower bound from <code>highs</code> or
+  <code>cpsat</code> meets the best path found — v1 <code>n20_td30d</code> is now proven.
+  <span class="tag">best-known</span> neither; printed with its bound and gap, never called an
+  optimality gap. Full per-instance tables, all from the committed <code>summary.csv</code>
+  files, are in the README.</p>
+
+  <figure>
+    <img src="docs/figures/bench_v3_gap_by_instance.png" alt="Every v3 instance on its own row: each solver's mean gap above the reference, and a grey bar for how far the certified lower bound sits below the reference. Most rows sit at zero; four time-dependent rows have large grey bars; localsearch sits off zero on n20_td3d only.">
+    <figcaption>v3, every instance and every search solver. The grey bar is the reference minus
+    the certified lower bound: how far an unproven reference could still be from optimal.
+    <code>highs</code>' off-scale points at N ≥ 40 are unfinished branch-and-bound incumbents; its
+    job there is the bound.</figcaption>
+  </figure>
+
+  <h3>Where anything has headroom — and where nobody can tell</h3>
+  <table>
+    <thead><tr><th>v3 instance</th><th class="num">best-known (km/s)</th><th class="num">certified bound</th>
+    <th class="num">gap</th><th class="num">localsearch</th><th class="num">ils</th><th class="num">sa-perm</th></tr></thead>
+    <tbody>
+      <tr><td><code>n20_td3d</code></td><td class="num">6.9200</td><td class="num">6.9200</td><td class="num">0.00015%</td><td class="num">+2.63%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td><code>n30_td3d</code></td><td class="num">10.1677</td><td class="num">4.3932</td><td class="num">56.79%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td><code>n40_td3d</code></td><td class="num">13.4336</td><td class="num">5.1076</td><td class="num">61.98%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.00%</td></tr>
+      <tr><td><code>n50_td3d</code></td><td class="num">16.1235</td><td class="num">5.8367</td><td class="num">63.80%</td><td class="num">+0.00%</td><td class="num">+0.00%</td><td class="num">+0.18%</td></tr>
+    </tbody>
+  </table>
+  <p><code>n20_td3d</code> is the only measured headroom in the benchmark: localsearch stops 2.63%
+  short, and iterated local search and permutation annealing find the better path on every seed.
+  At N ≥ 30 the picture is <strong>unresolved: the bounds are too weak to certify</strong>. No run
+  of any solver beats localsearch there, and the evidence favours bound weakness over hidden
+  headroom — on the four v3 time-dependent instances whose optimum is pinned, the cut-LP bound
+  alone sits 30–70% below the true optimum, and at N ≥ 30 the certified bound <em>is</em> that
+  cut LP. A few percent of headroom, like <code>n20_td3d</code>'s, is not excluded.</p>
 
   <h3>The QUBO encoding, not the annealing, is what fails</h3>
-  <p><code>sa-perm</code> and <code>sa-qubo</code> minimise the same objective with the same
-  annealer budget — the same reads, the same sweeps, and N² proposed moves per sweep on both
-  sides. They differ only in what they search: a permutation, or N² binaries plus penalty terms.</p>
-  <table>
-    <thead><tr><th>instance</th><th class="num">sa-perm</th><th class="num">sa-qubo</th></tr></thead>
-    <tbody>
-      <tr><td>n8_td30d</td><td class="num">+0.00%</td><td class="num">+3.30% ± 2.70</td></tr>
-      <tr><td>n10_td30d</td><td class="num">+0.00%</td><td class="num">+14.65% ± 6.95</td></tr>
-      <tr><td>n15_td30d</td><td class="num">+0.00%</td><td class="num">+47.20% ± 10.27</td></tr>
-      <tr><td>n20_td30d</td><td class="num">+0.00%</td><td class="num">+108.17% ± 9.67</td></tr>
-    </tbody>
-  </table>
-  <p><code>sa-perm</code> gets a 1-second wall-clock budget; <code>sa-qubo</code>'s 500 reads ×
-  1000 sweeps costs it 0.28–2.30 s. The comparison is generous to <code>sa-qubo</code> twice over
-  — more wall clock at the larger sizes, and compiled C++ against interpreted Python. Both budget
-  currencies are recorded so it can be audited. The penalty terms are not the culprit either: raw
-  feasibility is 1.00 at every weight at or above the provable threshold. The constraints are
-  satisfied; the objective is not being optimised.</p>
-  <p>One caveat stated plainly: <code>sa-perm</code> starts from the greedy solution, so part of
-  its +0.00% is that head start. <code>localsearch</code> — the same neighbourhood at zero
-  temperature — already ties everywhere in under 3 ms, which suggests the annealing adds little
-  here. What the comparison does establish is narrower and still worth having: at a budget that
-  favours it, the QUBO encoding loses badly to searching permutations directly.</p>
-
-  <div class="note"><strong>The cheapest solver in the benchmark also ties everywhere.</strong>
-  <code>localsearch</code> — greedy, then 2-opt and or-opt to a local optimum — matches the
-  reference on all twelve instances in at most 3 ms, against 60 s for <code>cpsat</code>. The two
-  cells where plain <code>greedy</code> loses (<code>n8_td30d</code> +5.37%,
-  <code>n15_td30d</code> +5.18%) are repaired by a few milliseconds of local search. So this
-  instance family has essentially no headroom left — a finding about the benchmark, not a
-  triumph.</div>
+  <p><code>sa-perm</code> anneals the same objective over permutations; <code>sa-qubo</code>
+  anneals N² penalised binaries. <code>sa-perm</code> ties the reference everywhere except a
+  +0.18% mean on v3 <code>n50_td3d</code>. <code>sa-qubo</code> is the worst search heuristic at
+  every N ≥ 10, reaching +353% at N=40, and refuses N &gt; 40 — with more wall clock than
+  <code>sa-perm</code>'s 1 s and in compiled C++. The greedy head start <code>sa-perm</code> enjoys
+  is now measured by <code>sa-perm-cold</code>: it matters only at N ≥ 20, by up to 2.92% mean.</p>
 
   <h2>The problem</h2>
   <p>Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost to
@@ -249,26 +243,35 @@
   But within the feasible set it barely optimises: the mean delta-v of its feasible samples is only
   6.6% and 6.5% better than a uniformly random permutation. It is finding permutations, not good
   permutations.</p>
-  <p>Every QAOA runtime in this project is <strong>classical statevector simulation time</strong>
-  (63.3 s ± 7.3 per run at N=4). It is not a quantum runtime, and no quantum hardware was
-  involved.</p>
+  <p>Every QAOA runtime in this project is <strong>classical simulation time</strong>:
+  statevector time for <code>qaoa</code> (118.67 s ± 16.52 per run on v1 <code>n4_static</code>),
+  subspace time for <code>qaoa-swap</code> (0.40–4.11 s mean per run). <code>qaoa-swap</code>
+  reaches N=9 only because its feasible subspace has N! amplitudes, which a classical simulator
+  evolves exactly. No quantum hardware was involved.</p>
 
   <h2>Reproduce it</h2>
-  <p>From a clean clone, three commands. No network access is required — the TLE snapshot,
-  the instance family and the canonical results run are all committed.</p>
+  <p>From a clean clone. No network access is required — the TLE snapshots, the three
+  instance families and the three canonical runs are all committed. Runs are resumable.</p>
   <pre><code>uv sync --all-extras
-uv run dextrivia bench --out results/my-run
-uv run python scripts/plot_benchmark.py results/my-run</code></pre>
+uv run dextrivia bench --out results/my-v1
+uv run dextrivia bench --instance-dir data/instances/planecluster-v2 --out results/my-v2 --no-penalty-study
+uv run dextrivia bench --instance-dir data/instances/collisionpair-v3 --out results/my-v3 --no-penalty-study
+uv run python scripts/results_tables.py results/my-v1 results/my-v2 results/my-v3</code></pre>
 
   <h2>Limitations</h2>
   <ul>
     <li><strong>The cost model still ignores phasing</strong> — the single largest omission. The
     servicer is assumed to arrive at the right point in the target's orbit for free.</li>
-    <li><strong>The instance family has no headroom left.</strong> A millisecond local search
-    ties the reference on all twelve instances, so the table ranks almost nothing. A stronger claim
-    about any solver needs harder instances, not more seeds.</li>
-    <li><strong>N=20 is uncertified.</strong> Held-Karp cannot run there, and CP-SAT's lower bound
-    is still 0.0 at its time limit, so "best-known" at N=20 is exactly that and nothing more.</li>
+    <li><strong>Real-data instances are nearly one-dimensional.</strong> A millisecond local search
+    ties the reference on 55 of 56 instances. A stronger claim about any solver needs constraints
+    the real geometry does not supply — propellant, time windows, conjunction risk — not more
+    seeds.</li>
+    <li><strong>Six references are best-known, not proven.</strong> Four v3 time-dependent
+    instances at N ≥ 20 and v2 <code>n40_td3d</code> carry certified gaps, and v3
+    <code>n60_static</code> is certified only by the pre-registered untimed bound, not by the run.</li>
+    <li><strong>The Cosmos-2251 half of v3 has no measured propagation horizon.</strong> The
+    177-day horizon was measured on Iridium-33 only, and crossing 12° of inclination between the
+    clouds (~1.6 km/s) is not a realistic mission; v3 exists to test solvers.</li>
     <li><strong>One QUBO formulation, one annealer, one QAOA depth range.</strong> These results
     bound this encoding on this problem, not quantum optimisation in general.</li>
     <li>No conjunction-risk weighting, propellant budget, time windows, or vehicle constraints.</li>
@@ -283,10 +286,12 @@ uv run python scripts/plot_benchmark.py results/my-run</code></pre>
     <a href="https://github.com/dwavesystems/dwave-samplers">dwave-samplers</a>,
     <a href="https://www.ibm.com/quantum/qiskit">Qiskit</a> and
     <a href="https://developers.google.com/optimization">OR-Tools</a>.</p>
-    <p>Every number on this page comes from one committed benchmark run,
-    <code>results/canonical/</code>, whose manifest records the git SHA, a sha256 per instance,
-    library versions, CPU and seeds. Solution quality was identical across two independent runs of
-    it; wall-clock was not, which is why the runtime numbers are labelled as orders of magnitude.</p>
+    <p>Every number on this page comes from three committed runs —
+    <code>results/canonical/</code>, <code>results/canonical-v2/</code> and
+    <code>results/canonical-v3/</code> — whose manifests record the git SHA, a sha256 per instance,
+    library versions, CPU, seeds, and any code change between the runs and the files written from
+    them. Wall-clock is not deterministic, which is why runtimes are labelled as orders of
+    magnitude.</p>
   </div>
 </footer>
 
