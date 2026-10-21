@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import textwrap
 from pathlib import Path
 
 import numpy as np
@@ -190,9 +191,12 @@ def figure_gap_vs_n(summary: list[dict[str, str]], out: Path, prefix: str = "ben
             else:
                 tied.append(solver)
         if tied:
+            # Wrapped: with thirteen solvers the list outgrew the panel and the
+            # two panels' captions ran into each other.
             ax.annotate(
-                "+0.00% at every N (tie the reference): " + ", ".join(tied),
-                xy=(0.5, -0.155),
+                textwrap.fill("+0.00% at every N (tie the reference): " + ", ".join(tied), 70),
+                xy=(0.5, -0.17),
+                va="top",
                 xycoords="axes fraction",
                 fontsize=8,
                 color=INK_SOFT,
@@ -239,7 +243,7 @@ def figure_gap_vs_n(summary: list[dict[str, str]], out: Path, prefix: str = "ben
         fontsize=12,
         color=INK,
     )
-    fig.tight_layout(rect=(0, 0.05, 1, 1))
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     path = out / f"{prefix}_gap_vs_n.png"
     fig.savefig(path, dpi=150, facecolor="white")
     plt.close(fig)
