@@ -1,0 +1,877 @@
+{
+  "timestamp_utc": "2026-10-20T07:14:37.572175+00:00",
+  "elapsed_s": 2472.416429042816,
+  "command": "/Users/Atiksh1/conductor/workspaces/dextrivia/ulaanbaatar/.venv/bin/dextrivia bench --instance-dir data/instances/collisionpair-v3 --out results/canonical-v3 --no-penalty-study",
+  "git": {
+    "sha": "203f4e9f4e9ffb10a572c73c5b43d11ba40b6077",
+    "branch": "benchmark-headroom-bounds",
+    "dirty": false,
+    "dirty_paths": []
+  },
+  "snapshots": [
+    "iridium33_20260928+cosmos2251_20260930.json"
+  ],
+  "instances": [
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n10_static.npz",
+      "sha256": "2ed6cdd33e842529d1a2de956df763d427cc88502293fb6db9349ab5da84d922",
+      "n": 10,
+      "time_dependent": false,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 10,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 12.6477,
+        "cluster_altitude_span_km": 131.26,
+        "excluded_decayed": [],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-static",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": false,
+        "delta_per_leg_days": null,
+        "leg_departure_rule": "all legs priced at epoch",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 12.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 5,
+          "cosmos2251_20260930.json": 5
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n10_td3d.npz",
+      "sha256": "186a5b932c084a6725814e0936a3a219c71ff8293791313e5e47ab58f0f85b82",
+      "n": 10,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 10,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 12.6477,
+        "cluster_altitude_span_km": 131.26,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-05T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-3d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 3.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 36.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 5,
+          "cosmos2251_20260930.json": 5
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n10_td7d.npz",
+      "sha256": "4117204b10131d5528eb71e646ae8720728c25a3b8a54b039e983c9ca0423495",
+      "n": 10,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 10,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 12.6477,
+        "cluster_altitude_span_km": 131.26,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-06T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35443,
+            "sgp4_error": 6,
+            "at": "2026-11-10T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35891,
+            "sgp4_error": 6,
+            "at": "2026-10-27T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-7d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 7.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 68.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 5,
+          "cosmos2251_20260930.json": 5
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n20_static.npz",
+      "sha256": "568db9b51ac27739a1b3a15bf7ee971955182194347b19f959523def838e5dc0",
+      "n": 20,
+      "time_dependent": false,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 20,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 14.7259,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-static",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": false,
+        "delta_per_leg_days": null,
+        "leg_departure_rule": "all legs priced at epoch",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 12.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 10,
+          "cosmos2251_20260930.json": 10
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n20_td3d.npz",
+      "sha256": "fd61d18fe988b1b6c68751f3af0a5aa7aecd993a96dc78eba047957b9d0c8c7e",
+      "n": 20,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 20,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 14.7259,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-05T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35443,
+            "sgp4_error": 6,
+            "at": "2026-11-10T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35891,
+            "sgp4_error": 6,
+            "at": "2026-10-29T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-3d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 3.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 66.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 10,
+          "cosmos2251_20260930.json": 10
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n20_td7d.npz",
+      "sha256": "5054c16dfb0eb07c630fc5809b3c2df910a5b77b25bb3577003780ac4f4c8ff0",
+      "n": 20,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 20,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 14.7259,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-06T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 33939,
+            "sgp4_error": 6,
+            "at": "2026-12-22T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35443,
+            "sgp4_error": 6,
+            "at": "2026-11-10T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35891,
+            "sgp4_error": 6,
+            "at": "2026-10-27T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 38487,
+            "sgp4_error": 6,
+            "at": "2026-12-22T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-7d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 7.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 138.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 10,
+          "cosmos2251_20260930.json": 10
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n30_static.npz",
+      "sha256": "f5951e5dd4fd5c0a8a886bc6083f420d864463cf89f936cb20bc520ed451fcb3",
+      "n": 30,
+      "time_dependent": false,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 30,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 17.6839,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-static",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": false,
+        "delta_per_leg_days": null,
+        "leg_departure_rule": "all legs priced at epoch",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 12.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 15,
+          "cosmos2251_20260930.json": 15
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n30_td3d.npz",
+      "sha256": "fdcd421070b052465e568104bd2aa69eb2bf55c59db51eb27b8eb8d7934b149b",
+      "n": 30,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 30,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 17.6839,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-05T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 33939,
+            "sgp4_error": 6,
+            "at": "2026-12-16T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35443,
+            "sgp4_error": 6,
+            "at": "2026-11-10T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35891,
+            "sgp4_error": 6,
+            "at": "2026-10-29T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 38487,
+            "sgp4_error": 6,
+            "at": "2026-12-19T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-3d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 3.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 96.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 15,
+          "cosmos2251_20260930.json": 15
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n40_static.npz",
+      "sha256": "8ebce1de93e5bc6fbd21674294b963483624fd4f40b725e840341734ef1f59e2",
+      "n": 40,
+      "time_dependent": false,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 40,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 20.0149,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-static",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": false,
+        "delta_per_leg_days": null,
+        "leg_departure_rule": "all legs priced at epoch",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 12.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 20,
+          "cosmos2251_20260930.json": 20
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n40_td3d.npz",
+      "sha256": "8dbff4485c648893ae6b0ac45cfabc203cbe19f932b59bbb73fa74565e554263",
+      "n": 40,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 40,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 20.0149,
+        "cluster_altitude_span_km": 293.046,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-05T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 33939,
+            "sgp4_error": 6,
+            "at": "2026-12-16T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35443,
+            "sgp4_error": 6,
+            "at": "2026-11-10T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35891,
+            "sgp4_error": 6,
+            "at": "2026-10-29T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 38487,
+            "sgp4_error": 6,
+            "at": "2026-12-19T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-3d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 3.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 126.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 20,
+          "cosmos2251_20260930.json": 20
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n50_static.npz",
+      "sha256": "1329abf7ed5ee343eb8a21052f4565818afcd02b6d2649925dfed2e07b27cd97",
+      "n": 50,
+      "time_dependent": false,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 50,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 22.6254,
+        "cluster_altitude_span_km": 412.891,
+        "excluded_decayed": [],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-static",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": false,
+        "delta_per_leg_days": null,
+        "leg_departure_rule": "all legs priced at epoch",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 12.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 25,
+          "cosmos2251_20260930.json": 25
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n50_td3d.npz",
+      "sha256": "1550642e5e59d2f2dbae3fc4ff7f01503cd9ca7fb70c59188df1b1a80a45d1ce",
+      "n": 50,
+      "time_dependent": true,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 50,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 22.6254,
+        "cluster_altitude_span_km": 412.891,
+        "excluded_decayed": [
+          {
+            "norad_id": 35622,
+            "sgp4_error": 6,
+            "at": "2026-10-05T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 33939,
+            "sgp4_error": 6,
+            "at": "2026-12-16T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35443,
+            "sgp4_error": 6,
+            "at": "2026-11-10T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 35891,
+            "sgp4_error": 6,
+            "at": "2026-10-29T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 37518,
+            "sgp4_error": 6,
+            "at": "2027-02-14T02:01:07.519584+00:00"
+          },
+          {
+            "norad_id": 38487,
+            "sgp4_error": 6,
+            "at": "2026-12-19T02:01:07.519584+00:00"
+          }
+        ],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-j2-3d",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": true,
+        "delta_per_leg_days": 3.0,
+        "leg_departure_rule": "leg k departs at epoch + k * delta_per_leg_days",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 156.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 25,
+          "cosmos2251_20260930.json": 25
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    },
+    {
+      "file": "iridium33_20260928+cosmos2251_20260930_collisionpair-v3_n60_static.npz",
+      "sha256": "41e8449a3865f1649817e41bda55b22540caa11ceef5bb21d2ae2c3a6965eb5d",
+      "n": 60,
+      "time_dependent": false,
+      "metadata": {
+        "snapshot": "iridium33_20260928+cosmos2251_20260930.json",
+        "snapshot_fetched_utc": "2026-09-30T05:46:02.680679+00:00",
+        "snapshot_size": 693,
+        "epoch_source": "snapshot-median-tle-epoch",
+        "selection_rule": "collision-pair",
+        "selection_n": 60,
+        "selection_seed": null,
+        "cluster_seed_norad": 37565,
+        "cluster_max_plane_angle_deg": 25.9889,
+        "cluster_altitude_span_km": 412.891,
+        "excluded_decayed": [],
+        "raan_window_deg": 10.0,
+        "inc_window_deg": 2.0,
+        "alt_band_km": 250.0,
+        "cost_model": "impulsive-plane-static",
+        "cost_model_family": "impulsive-plane",
+        "time_dependent": false,
+        "delta_per_leg_days": null,
+        "leg_departure_rule": "all legs priced at epoch",
+        "window_days": 0.0,
+        "window_samples": 1,
+        "window_rule": "C[k,i,j] priced at the nominal departure time t_k (no loiter)",
+        "propagation_span_days": 12.841,
+        "validity_horizon_days": 177.0,
+        "validity_horizon_source": "docs/physics.md section 9: iridium33_20260402 propagated to iridium33_20260928 (single ~177-day horizon, two snapshots; fit-noise floor unmeasured)",
+        "exceeds_validity_horizon": false,
+        "snapshots": [
+          "iridium33_20260928.json",
+          "cosmos2251_20260930.json"
+        ],
+        "cloud_counts": {
+          "iridium33_20260928.json": 30,
+          "cosmos2251_20260930.json": 30
+        },
+        "validity_horizon_note": "horizon measured on Iridium-33 only; not validated for Cosmos-2251",
+        "family_version": "v3"
+      }
+    }
+  ],
+  "solvers": {
+    "greedy": {
+      "class": "GreedySolver"
+    },
+    "exact": {
+      "class": "ExactSolver"
+    },
+    "brute": {
+      "class": "BruteForceSolver"
+    },
+    "sa-qubo": {
+      "class": "SimulatedAnnealingSolver",
+      "num_reads": 500,
+      "num_sweeps": 1000,
+      "penalty": null,
+      "max_n": 40
+    },
+    "qaoa": {
+      "class": "QAOASolver",
+      "reps": 2,
+      "shots": 4096,
+      "maxiter": 300,
+      "restarts": 3,
+      "penalty": null,
+      "max_n": 4
+    },
+    "qaoa-swap": {
+      "class": "QAOASwapSolver",
+      "reps": 2,
+      "shots": 4096,
+      "maxiter": 300,
+      "restarts": 3,
+      "backend": "subspace",
+      "initial_state": "uniform",
+      "max_n": 9
+    },
+    "ortools": {
+      "class": "ORToolsRoutingSolver",
+      "time_limit_s": 5.0,
+      "first_solution": "PATH_CHEAPEST_ARC"
+    },
+    "localsearch": {
+      "class": "LocalSearchSolver",
+      "max_passes": 100
+    },
+    "sa-perm": {
+      "class": "PermutationAnnealingSolver",
+      "time_limit_s": 1.0,
+      "restarts": 4,
+      "cooling": 0.995,
+      "start_from_greedy": true,
+      "max_iterations": null
+    },
+    "cpsat": {
+      "class": "CPSATSolver",
+      "time_limit_s": 60.0,
+      "workers": 8,
+      "max_n": 50,
+      "warm_start": true,
+      "circuit": true
+    },
+    "highs": {
+      "class": "HiGHSSolver",
+      "time_limit_s": 60.0,
+      "max_n": 60
+    },
+    "ils": {
+      "class": "IteratedLocalSearchSolver",
+      "kicks": 2000,
+      "restart_after": 50,
+      "time_limit_s": 30.0
+    },
+    "sa-perm-cold": {
+      "class": "ColdPermutationAnnealingSolver",
+      "time_limit_s": 1.0,
+      "restarts": 4,
+      "cooling": 0.995,
+      "start_from_greedy": false,
+      "max_iterations": null
+    }
+  },
+  "deterministic_solvers": [
+    "brute",
+    "exact",
+    "greedy",
+    "highs"
+  ],
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "penalty_factors": [
+    0.5,
+    1.0,
+    1.05,
+    1.1,
+    1.5,
+    2.0,
+    4.0,
+    8.0
+  ],
+  "backends": {
+    "dwave-samplers": "available",
+    "qiskit": "available",
+    "ortools-routing": "available",
+    "ortools-cpsat": "available",
+    "scipy": "available"
+  },
+  "versions": {
+    "numpy": "2.4.6",
+    "sgp4": "2.27",
+    "dimod": "0.12.22",
+    "dwave-samplers": "1.8.0",
+    "qiskit": "2.5.2",
+    "scipy": "1.17.1",
+    "ortools": "9.15.6755",
+    "matplotlib": "3.11.2"
+  },
+  "platform": {
+    "system": "Darwin",
+    "release": "25.6.0",
+    "machine": "x86_64",
+    "processor": "i386",
+    "cpu_count": 15,
+    "python": "3.11.15",
+    "python_implementation": "CPython"
+  },
+  "segments": [
+    {
+      "started_utc": "2026-10-20T07:14:37.572175+00:00",
+      "git_sha": "203f4e9f4e9ffb10a572c73c5b43d11ba40b6077",
+      "dirty_paths": [],
+      "runs": 609
+    }
+  ],
+  "code_changes_since_runs": [],
+  "single_seed_above_n": {
+    "cpsat": 20
+  }
+}

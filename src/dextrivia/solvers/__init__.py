@@ -14,8 +14,14 @@ is missing reports ``feasible=False`` at solve time like any other miss.
 from dextrivia.solvers.cpsat import CPSATSolver
 from dextrivia.solvers.exact import BruteForceSolver, ExactSolver
 from dextrivia.solvers.greedy import GreedySolver
+from dextrivia.solvers.highs_mip import HiGHSSolver
 from dextrivia.solvers.ortools_routing import ORToolsRoutingSolver
-from dextrivia.solvers.permutation import LocalSearchSolver, PermutationAnnealingSolver
+from dextrivia.solvers.permutation import (
+    ColdPermutationAnnealingSolver,
+    IteratedLocalSearchSolver,
+    LocalSearchSolver,
+    PermutationAnnealingSolver,
+)
 from dextrivia.solvers.quantum_annealing import SimulatedAnnealingSolver
 from dextrivia.solvers.quantum_qaoa import QAOASolver
 from dextrivia.solvers.quantum_qaoa_swap import QAOASwapSolver
@@ -32,12 +38,20 @@ SOLVERS = {
     LocalSearchSolver.name: LocalSearchSolver,
     PermutationAnnealingSolver.name: PermutationAnnealingSolver,
     CPSATSolver.name: CPSATSolver,
+    HiGHSSolver.name: HiGHSSolver,
+    IteratedLocalSearchSolver.name: IteratedLocalSearchSolver,
+    ColdPermutationAnnealingSolver.name: ColdPermutationAnnealingSolver,
 }
 
 #: Solvers whose result does not depend on ``seed``. ``dextrivia bench`` runs
 #: these once instead of once per seed -- three identical Held-Karp runs
 #: measure nothing and cost oracle time.
-DETERMINISTIC = frozenset({GreedySolver.name, ExactSolver.name, BruteForceSolver.name})
+#: ``highs`` is here because HiGHS branch-and-bound does not take a seed; its
+#: answer can still vary by machine when the time limit binds, and it records
+#: that (``proven_optimal``, ``mip_status``).
+DETERMINISTIC = frozenset(
+    {GreedySolver.name, ExactSolver.name, BruteForceSolver.name, HiGHSSolver.name}
+)
 
 __all__ = [
     "GreedySolver",
@@ -51,5 +65,8 @@ __all__ = [
     "LocalSearchSolver",
     "PermutationAnnealingSolver",
     "CPSATSolver",
+    "HiGHSSolver",
+    "IteratedLocalSearchSolver",
+    "ColdPermutationAnnealingSolver",
     "SOLVERS",
 ]

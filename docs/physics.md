@@ -556,3 +556,126 @@ Read honestly:
   `n20_td7d`, `n25_td7d` and `n40_td3d`. Their sub-650 km legs are the
   least-validated numbers in v2 (see section 9). Every v2 cluster with N ≥ 8
   contains 2–9 objects below 650 km.
+
+## 11. Why the plane-cluster families are easy, and the v3 `collision-pair` family
+
+### The finding: static plane-cluster instances are one-dimensional
+
+The diagnostics defined below were run on every v1 and v2 file with
+`scripts/build_instance_family.py --check --diagnostics`. The output is in
+`docs/data/instance_diagnostics.json`. For every instance, classical MDS puts
+0.96–1.00 of the cost matrix's variance on a single axis.
+
+* **Static v2 is exactly 1-D.** Visiting in RAAN order is a sort, not a
+  search. On 8 of the 9 static v2 instances it meets the certified cut-LP
+  bound (0.00%), and on `n40_static` it is within 0.23%. It is provably
+  optimal, or within a quarter of a percent of it. The objects share an
+  inclination to 0.5°, so plane angle is RAAN difference, and RAAN spread
+  dominates altitude spread (1° of plane ≈ 0.131 km/s, 100 km ≈ 0.053 km/s).
+  This is the altitude-only degeneracy of README point 3 again, rotated onto
+  RAAN.
+* **Static v1 is nearly so.** RAAN order is within 2.1–5.6% of the bound at
+  N ≥ 8. The April snapshot at a 10° window leaves slightly more altitude
+  structure.
+* **Time-dependent instances are *not* 1-D, and are easy anyway.** RAAN order
+  is 2–77% above the bound on them, because drift reorders the planes over the
+  mission. They are easy for a different reason: the drift is a perturbation
+  of a 1-D problem (slot drift 3–33% in v2), and 2-opt/or-opt from the greedy
+  path repairs it. Whether that repair is optimal is what the certified bounds
+  in the benchmark answer.
+
+A wider window does not help. The Iridium-33 cloud has about 110 objects
+spread over 360° of RAAN, so any large cluster is a strip along RAAN.
+
+### v3: both halves of the collision (pre-registered)
+
+`data/instances/collisionpair-v3/` has 13 files, built by
+`uv run python scripts/build_instance_family.py --version v3` from
+`iridium33_20260928.json` and a new snapshot, `cosmos2251_20260930.json`
+(583 objects, fetched 2026-09-30T05:46Z with `dextrivia fetch --group
+cosmos-2251-debris`). Cosmos-2251 debris sits at 74.0° inclination against
+Iridium-33's 86.4°, so plane angle between the two clouds depends on
+inclination as well as RAAN.
+
+**The rule** (`selection.select_collision_pair`), fixed before any solver ran:
+
+1. The seed is the `plane-cluster` seed of the Iridium-33 cloud: the densest
+   plane, decay-screened. Here that is 37565 (714 km, 86.34°, RAAN 243.9°).
+2. Each cloud contributes half of the N objects, with Iridium taking the odd
+   one. These are the objects within 250 km of the seed's altitude that are
+   nearest to the seed in true plane angle, with NORAD id breaking ties. There
+   is no RAAN window; the ranking is the window.
+3. N ∈ {10, 20, 30, 40, 50, 60}, static and Δ ∈ {3, 7} days, each kept only
+   inside the 177-day horizon. That gives 13 files, with Δ=3 d up to N=50 and
+   Δ=7 d up to N=20.
+
+**Validity is borrowed.** The 177-day horizon was measured on Iridium-33 only
+(section 9). No Space-Track TLE history was available to this workspace, so
+the Cosmos-2251 half has **no measured horizon**. Every v3 instance carries
+`validity_horizon_note: "horizon measured on Iridium-33 only; not validated
+for Cosmos-2251"`. Treat time-dependent v3 costs for Cosmos objects as
+unvalidated.
+
+**Realism caveat.** Crossing between the clouds costs at least the 12.4°
+inclination difference, about 1.6 km/s per crossing. A real servicer would
+stay in one plane. v3 exists to find out whether *any* real-data geometry
+from this collision gives a solver something to do. It is not a mission
+proposal, and it should not be quoted as one.
+
+**Time dependence is large, and it is physical.** The two clouds' nodes
+regress at different rates (J2 goes as cos i), about 0.85°/day apart. Over a
+mission of weeks the two planes slide past each other. Slot drift, as defined
+in section 10, is 175–667% for v3, against 3–33% for v2. A cross-cloud leg
+flown at the wrong time costs several km/s.
+
+### Pre-registered diagnostics, computed before any solver ran on v3
+
+For each instance the diagnostics record:
+
+* **MDS axis 1 / 2.** The share of classical-MDS variance on the first one and
+  first two axes of the slot-0 cost matrix. A value of 0.99 on axis 1 means the
+  costs are distances along a line.
+* **RAAN order.** Visit every object in RAAN order, taking the better
+  direction.
+* **Strip order.** Visit each cloud contiguously in RAAN order, taking the best
+  of the 8 combinations ("two strips crossed once").
+* **The cut-LP lower bound** (`highs_mip.lp_lower_bound`). This is a
+  relaxation. It is not a heuristic, a branch-and-bound or a sequence search.
+  Because it is a lower bound, "vs bound" below is an upper bound on how far
+  each sort is from optimal.
+
+**The rule, fixed with the family:** an instance is *effectively 1-D* when
+strip order is within **1%** of the certified bound. If every v3 instance
+passes, v3 is reported as effectively 1-D and no other geometry is tried.
+
+| instance | MDS axis 1 / 2 | RAAN order (km/s) | strip order (km/s) | cut-LP bound (km/s) | RAAN order vs bound | strips vs bound | 1-D? |
+|---|---|---|---|---|---|---|---|
+| `n10_static` | 0.97 / 1.00 | 6.7695 | 2.3605 | 2.3604 | <= 65.13% | <= 0.00% | yes |
+| `n10_td3d` | 0.97 / 1.00 | 11.2370 | 3.2004 | 2.2121 | <= 80.31% | <= 30.88% | not shown |
+| `n10_td7d` | 0.97 / 1.00 | 20.4672 | 5.9414 | 2.2530 | <= 88.99% | <= 62.08% | not shown |
+| `n20_static` | 0.85 / 1.00 | 13.7888 | 3.9724 | 3.9575 | <= 71.30% | <= 0.37% | yes |
+| `n20_td3d` | 0.85 / 1.00 | 35.3527 | 7.7569 | 3.6221 | <= 89.75% | <= 53.30% | not shown |
+| `n20_td7d` | 0.85 / 1.00 | 66.7026 | 15.5932 | 3.8421 | <= 94.24% | <= 75.36% | not shown |
+| `n30_static` | 0.76 / 1.00 | 23.8165 | 5.2249 | 5.1700 | <= 78.29% | <= 1.05% | not shown |
+| `n30_td3d` | 0.76 / 1.00 | 95.4038 | 12.5886 | 4.3932 | <= 95.40% | <= 65.10% | not shown |
+| `n40_static` | 0.64 / 1.00 | 36.7752 | 6.3285 | 6.2776 | <= 82.93% | <= 0.80% | yes |
+| `n40_td3d` | 0.64 / 1.00 | 201.8562 | 19.0266 | 5.1076 | <= 97.47% | <= 73.16% | not shown |
+| `n50_static` | 0.57 / 0.99 | 49.9226 | 7.3705 | 7.2836 | <= 85.41% | <= 1.18% | not shown |
+| `n50_td3d` | 0.57 / 0.99 | 311.8815 | 25.4788 | 5.8367 | <= 98.13% | <= 77.09% | not shown |
+| `n60_static` | 0.56 / 0.99 | 59.7203 | 8.5373 | 8.4777 | <= 85.80% | <= 0.70% | yes |
+
+Read honestly, before any solver result exists:
+
+* **Static v3 is two strips crossed once.** Two MDS axes carry 99–100% of the
+  variance. Strip order is within 0.0–1.2% of a certified bound on all six
+  static instances. That is 1-D by the rule on four of them, and 1.05% and
+  1.18% on the other two, just past the pre-registered line. Adding the second
+  cloud gave the static problem one extra degree of freedom (which strip to fly
+  first), not a two-dimensional one.
+* **Time-dependent v3 is not shown to be 1-D.** Strip order is 31–77% above
+  the bound. Part of that is the cut LP being weak on time-slotted costs, which
+  is also true of v1 `n20_td30d`, where the cut LP gives 2.4460 km/s against
+a proven optimum of 3.6723 (`docs/bounds.md`). The rest is
+  genuine: a fixed strip order crosses between the clouds at whatever time it
+  happens to reach the boundary, and the drifting planes punish that.
+  Whether any solver beats localsearch here is what the benchmark is for.

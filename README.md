@@ -2,70 +2,209 @@
 
 **An honest benchmark of classical, quantum-inspired and quantum solvers on a real orbital-debris sequencing problem.**
 
-Given N catalogued fragments of the Iridium-33 debris cloud and a delta-v cost to
-transfer between any two, find the visiting order that costs the least. The
-deliverable of this repository is **the comparison**, not any one solver.
+Given N catalogued fragments from the 2009 Iridium-33 / Cosmos-2251 collision
+and a delta-v cost to transfer between any two, find the visiting order that
+costs the least. The deliverable of this repository is **the comparison**, not
+any one solver.
 
-![Solution quality by solver and problem size](docs/figures/bench_gap_vs_n.png)
+## The findings
 
-**Gap above the reference, mean ± 1 s.d. over 5 seeds.** Every cell comes from
-[`results/canonical/summary.csv`](results/canonical/summary.csv). `exact` is
-Held-Karp and is the reference wherever it ran; at N=20 it cannot run, so the
-reference is the best result any solver achieved and is labelled **best-known**
-— that is not an optimality gap and is not presented as one.
+1. **Real breakup clouds give near-one-dimensional instances, and on them greedy
+   is often provably optimal.** This is the central result, not a footnote.
+   * **Static v2 is exactly 1-D.** Visiting the objects in RAAN order (a sort,
+     not a search) meets a certified lower bound on 8 of the 9 static v2
+     instances, and is within 0.23% on the ninth. The objects share an
+     inclination to 0.5°, so plane angle *is* RAAN difference.
+   * **Static v3 is two strips crossed once.** Mixing both halves of the
+     collision (86.4° and 74.0° inclination) adds one degree of freedom: which
+     cloud to sweep first. Sweeping each cloud in RAAN order is within
+     0.00–1.18% of a certified bound on all six static v3 instances.
+   * **Greedy is provably optimal on 16 of the 21 static instances** across all
+     three families, and within 0.66% on the other five.
+   * Source: the pre-registered diagnostics in
+     `docs/data/instance_diagnostics.json` (`docs/physics.md` §11), computed
+     before any solver ran on v3.
+2. **Every reference is now labelled exact, proven or best-known, with its
+   certified lower bound.** Of 56 instances, 34 are *exact* (Held-Karp),
+   16 are **proven** (a `highs` or `cpsat` certified bound meets the best path
+   found), and 6 are best-known.
+   * v1 `n20_td30d`, best-known in the previous canonical run, is now
+     **proven** (3.6723 km/s).
+   * v2 `n40_td3d` remains **best-known**: 5.7308 km/s against a bound of
+     4.9953 km/s, a 12.83% gap.
+3. **Localsearch is beaten on exactly one instance in the whole benchmark.**
+   On v3 `n20_td3d`, localsearch is +2.63% above 6.9200 km/s. `ils`, `sa-perm`
+   and `sa-perm-cold` reach 6.9200 on all 5 seeds; so does `highs`, and
+   `cpsat` does on 3 of 5. It is the only measured headroom over a
+   millisecond local search, and classical iterated local search and annealing
+   recover it.
+4. **v3 time-dependent at N ≥ 30 is unresolved: the bounds are too weak to
+   certify it.** No solver beats localsearch on `n30_td3d`, `n40_td3d` or
+   `n50_td3d`. The best-known paths sit 56.8–63.8% above the certified bounds.
+   The evidence favours **bound weakness over hidden headroom**:
+   * On the four v3 time-dependent instances whose optimum is pinned (N=10 and
+     20), the cut-LP bound alone is **30–70% below the true optimum**, and only
+     branch-and-bound closed the gap.
+   * At N ≥ 30, branch-and-bound added nothing within 60 s, so the certified
+     bound *is* the cut LP. The 57–64% gaps sit inside the cut LP's known
+     30–70% weakness.
+   * No run of any solver beats localsearch there. The best run of each, over
+     5 seeds where seeded, equals localsearch to the last digit.
+   * What is not excluded: a few percent of headroom like `n20_td3d`'s 2.6%.
+     `ils` hit its 30 s safety cap only at N=60.
+5. **No quantum or quantum-inspired solver beats the classical baselines
+   anywhere.** `sa-qubo` (simulated annealing on the penalty QUBO) is the worst
+   search heuristic at every N ≥ 10 and refuses N > 40. Below that, greedy is
+   worse than it on three time-dependent instances: v1 `n8_td30d`, v2
+   `n5_td7d` and v2 `n8_td7d`. `qaoa` stops at N=4.
+   `qaoa-swap` reaches N=9 only because its feasible subspace has N!
+   amplitudes. All of their runtimes are **classical simulation time**.
 
-**Static costs `C[i,j]`**
+Every cell below comes from a committed `summary.csv` and is printed by
+`uv run python scripts/results_tables.py results/canonical results/canonical-v2 results/canonical-v3`.
+Gap is the mean above the reference over 5 seeds, ± one standard deviation
+where it is non-zero. `cpsat` runs one seed above N=20, marked "(1 seed)".
+**Bold localsearch** marks the one instance where it is not at the reference.
+`highs`' large gaps at N ≥ 40 are its unfinished branch-and-bound incumbents.
+Its job there is the bound, and it has no warm start (`docs/bounds.md`).
 
-| instance | N | reference (km/s) | `greedy` | `localsearch` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
-|---|---|---|---|---|---|---|---|---|---|
-| `n4_static` | 4 | 0.5946 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
-| `n5_static` | 5 | 0.8296 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | refused |
-| `n8_static` | 8 | 1.0824 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.61% ± 1.22 | refused |
-| `n10_static` | 10 | 1.3268 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +11.64% ± 6.22 | refused |
-| `n15_static` | 15 | 2.0151 *exact* | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +63.57% ± 12.59 | refused |
-| `n20_static` | 20 | 2.4485 **best-known** | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +121.04% ± 9.00 | refused |
+### v1 — `planecluster-v1`, frozen, 12 instances (`results/canonical/`)
 
-**Time-dependent costs `C[t,i,j]`** (leg *k* departs 30 days after leg *k-1*)
+| instance | reference (km/s) | kind | certified bound | `greedy` | `localsearch` | `ils` | `sa-perm` | `sa-perm-cold` | `cpsat` | `highs` | `sa-qubo` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `n4_static` | 0.5946 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n4_td30d` | 0.5205 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_static` | 0.8296 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_td30d` | 0.8314 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n8_static` | 1.0824 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.61% ± 1.22 |
+| `n8_td30d` | 1.1124 | *exact* | Held-Karp | +5.37% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +3.30% ± 2.70 |
+| `n10_static` | 1.3268 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +11.64% ± 6.22 |
+| `n10_td30d` | 1.5165 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +14.65% ± 6.95 |
+| `n15_static` | 2.0151 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +63.57% ± 12.59 |
+| `n15_td30d` | 2.1855 | *exact* | Held-Karp | +5.18% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +47.20% ± 10.27 |
+| `n20_static` | 2.4485 | **proven** | 2.4485 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +121.04% ± 9.00 |
+| `n20_td30d` | 3.6723 | **proven** | 3.6723 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +108.17% ± 9.67 |
 
-| instance | N | reference (km/s) | `greedy` | `localsearch` | `cpsat` | `ortools` | `sa-perm` | `sa-qubo` | `qaoa` |
-|---|---|---|---|---|---|---|---|---|---|
-| `n4_td30d` | 4 | 0.5205 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | +0.00% |
-| `n5_td30d` | 5 | 0.8314 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +0.00% | refused |
-| `n8_td30d` | 8 | 1.1124 *exact* | **+5.37%** | +0.00% | +0.00% | refused | +0.00% | +3.30% ± 2.70 | refused |
-| `n10_td30d` | 10 | 1.5165 *exact* | +0.00% | +0.00% | +0.00% | refused | +0.00% | +14.65% ± 6.95 | refused |
-| `n15_td30d` | 15 | 2.1855 *exact* | **+5.18%** | +0.00% | +0.00% | refused | +0.00% | +47.20% ± 10.27 | refused |
-| `n20_td30d` | 20 | 3.6723 **best-known** | +0.00% | +0.00% | +0.00% | refused | +0.00% | +108.17% ± 9.67 | refused |
+### v2 — `planecluster-v2`, 31 instances (`results/canonical-v2/`)
 
-"refused" is a recorded miss with a reason, not a crash and not a blank:
-`qaoa` above N=4 (the qubit wall), `ortools` on every time-dependent instance
-(a routing arc-cost callback cannot see how many legs have been flown), `exact`
-above N=18 (Held-Karp memory).
+| instance | reference (km/s) | kind | certified bound | `greedy` | `localsearch` | `ils` | `sa-perm` | `sa-perm-cold` | `cpsat` | `highs` | `sa-qubo` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `n4_static` | 0.1875 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n4_td3d` | 0.1892 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n4_td7d` | 0.1942 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n4_td14d` | 0.1978 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n4_td30d` | 0.1980 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_static` | 0.2932 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_td3d` | 0.2946 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_td7d` | 0.2936 | *exact* | Held-Karp | +1.87% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_td14d` | 0.2746 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n5_td30d` | 0.2732 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% |
+| `n8_static` | 0.8346 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.71% ± 1.42 |
+| `n8_td3d` | 0.8123 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.33% ± 0.41 |
+| `n8_td7d` | 0.7676 | *exact* | Held-Karp | +3.14% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +1.25% ± 1.54 |
+| `n8_td14d` | 0.7356 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +1.75% ± 3.50 |
+| `n10_static` | 1.2731 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +10.09% ± 9.97 |
+| `n10_td3d` | 1.2993 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +10.55% ± 8.68 |
+| `n10_td7d` | 1.3373 | *exact* | Held-Karp | +1.96% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +9.73% ± 4.47 |
+| `n10_td14d` | 1.4102 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +23.43% ± 5.02 |
+| `n15_static` | 1.9215 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +69.01% ± 21.26 |
+| `n15_td3d` | 1.9484 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +55.78% ± 9.89 |
+| `n15_td7d` | 2.0331 | *exact* | Held-Karp | +4.66% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +63.98% ± 15.50 |
+| `n20_static` | 2.4123 | **proven** | 2.4123 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +116.06% ± 12.43 |
+| `n20_td3d` | 2.5321 | **proven** | 2.5321 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.15% ± 0.30 | +0.00% | +0.00% | +109.23% ± 9.25 |
+| `n20_td7d` | 2.6467 | **proven** | 2.6467 (highs) | +2.90% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +126.54% ± 14.63 |
+| `n25_static` | 3.5864 | **proven** | 3.5864 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | +159.85% ± 17.32 |
+| `n25_td3d` | 3.6015 | **proven** | 3.6015 (highs) | +1.83% | +0.00% | +0.00% | +0.00% | +0.76% ± 1.53 | +0.00% (1 seed) | +0.00% | +182.78% ± 18.83 |
+| `n25_td7d` | 3.6630 | **proven** | 3.6630 (highs) | +1.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | +158.50% ± 23.42 |
+| `n30_static` | 4.5135 | **proven** | 4.5135 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | +225.86% ± 34.48 |
+| `n30_td3d` | 4.5952 | **proven** | 4.5952 (highs) | +0.55% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | +227.52% ± 17.50 |
+| `n40_static` | 5.5281 | **proven** | 5.5281 (highs) | +0.23% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | +327.38% ± 33.13 |
+| `n40_td3d` | 5.7308 | best-known | 4.9953 (highs), gap 12.83% | +0.75% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +1118.69% | +353.08% ± 19.35 |
 
-### What this table says
+### v3 — `collisionpair-v3`, 13 instances (`results/canonical-v3/`)
 
-**No quantum or quantum-inspired solver here beats the classical baselines.**
-Three classical solvers — `localsearch`, `cpsat` and `sa-perm` — tie the
-reference on **all twelve instances**. `sa-qubo` is the only solver in the
-benchmark that fails, and `qaoa` cannot leave N=4. That is the result.
+| instance | reference (km/s) | kind | certified bound | `greedy` | `localsearch` | `ils` | `sa-perm` | `sa-perm-cold` | `cpsat` | `highs` | `sa-qubo` |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `n10_static` | 2.3605 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +3.74% ± 2.39 |
+| `n10_td3d` | 3.1784 | *exact* | Held-Karp | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +6.50% ± 1.15 |
+| `n10_td7d` | 5.7322 | *exact* | Held-Karp | +2.20% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +2.84% ± 1.42 |
+| `n20_static` | 3.9575 | **proven** | 3.9575 (highs) | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +71.72% ± 11.87 |
+| `n20_td3d` | 6.9200 | best-known | 6.9200 (cpsat), gap 0.00015% | +4.56% | **+2.63%** | +0.00% | +0.00% | +0.00% | +1.05% ± 1.29 | +0.00% | +34.66% ± 6.74 |
+| `n20_td7d` | 12.6266 | **proven** | 12.6265 (highs) | +2.79% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% | +27.30% ± 1.30 |
+| `n30_static` | 5.1700 | **proven** | 5.1700 (highs) | +0.51% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | +201.82% ± 17.73 |
+| `n30_td3d` | 10.1677 | best-known | 4.3932 (highs), gap 56.79% | +3.21% | +0.00% | +0.00% | +0.00% | +0.28% ± 0.56 | +0.00% (1 seed) | +96.31% | +97.63% ± 4.91 |
+| `n40_static` | 6.2776 | **proven** | 6.2776 (highs) | +0.42% | +0.00% | +0.00% | +0.00% | +0.04% ± 0.07 | +0.00% (1 seed) | +0.00% | +298.86% ± 23.81 |
+| `n40_td3d` | 13.4336 | best-known | 5.1076 (highs), gap 61.98% | +7.51% | +0.00% | +0.00% | +0.00% | +0.82% ± 1.64 | +0.00% (1 seed) | +266.03% | +149.74% ± 17.79 |
+| `n50_static` | 7.2836 | **proven** | 7.2836 (highs) | +0.36% | +0.00% | +0.00% | +0.00% | +0.00% | +0.00% (1 seed) | +0.00% | refused |
+| `n50_td3d` | 16.1235 | best-known | 5.8367 (highs), gap 63.80% | +0.93% | +0.00% | +0.00% | +0.18% ± 0.32 | +2.92% ± 5.66 | +0.00% (1 seed) | +1695.08% | refused |
+| `n60_static` | 8.4777 | best-known | 7.9255 (highs), gap 6.51% | +0.66% | +0.00% | +0.00% | +0.00% | +0.00% | refused | +1111.29% | refused |
 
-**The QUBO encoding, not the annealing, is what fails.** `sa-perm` and `sa-qubo`
-are the same idea — simulated annealing on this objective — applied to two
-different search spaces: the permutations themselves, or N² binaries with
-penalty terms. `sa-perm` ties the reference everywhere in **one second per
-run**. `sa-qubo` degrades monotonically with N to **+121%**. Reporting
-`sa-qubo` without this control would have left the blame ambiguous between the
-annealer and the encoding; with it, the encoding is where the quality goes.
+Notes on v3:
+* **`n20_td3d` is best-known by a hair.** `cpsat`'s seed-4 run reports status
+  OPTIMAL, and its certified bound is 1.0e-5 km/s below the path, a gap of
+  0.00015%. The pre-registered "proven" tolerance is also 1e-5 km/s. At N=20
+  cpsat's own rounding margin is 9.5e-6 km/s, so its certified bound cannot
+  come closer than this. The label is reported as the rule produced it;
+  see the open items in the PR.
+* **`n60_static` is certified optimal, just not by the benchmark run.** The
+  bench's `highs` (60 s) stopped at a bound of 7.9255 km/s. The pre-registered
+  untimed cut LP gives 8.47773953 km/s, which is the best-known path minus the
+  1e-6 km/s safety margin. It is recorded in
+  [`docs/data/instance_diagnostics.json`](docs/data/instance_diagnostics.json),
+  at `v3 → instances → label "n60_static" → lp_bound_dv`, and was committed in
+  `2c74b46` before any solver ran on v3.
+* `ortools` (static instances only) is not in the table. It ties the reference
+  on every v1 and v2 static instance. On v3 static it is +2.24% at N=20,
+  +1.41% at N=40, +3.66% at N=50 and +0.42% at N=60.
 
-**The cheapest solver in the benchmark also ties everywhere.** `localsearch`
-— greedy, then 2-opt and or-opt to a local optimum — matches the reference on
-all twelve instances in **at most 3 ms**, against a 60 s budget for `cpsat` and
-5 s for `ortools`. The two cells where plain `greedy` loses (`n8_td30d` +5.37%,
-`n15_td30d` +5.18%) are repaired by a few milliseconds of local search.
+### Simulated quantum solvers, where they run
 
-**So this instance family has essentially no headroom left.** That is a finding
-about the benchmark, not a triumph: the interesting question has moved to
-instances hard enough that a millisecond heuristic does not already solve
-them.
+`qaoa` refuses N > 4 (the qubit wall) and `qaoa-swap` refuses N > 9. Both
+refuse every v3 instance. Runtime is labelled by its `runtime_kind`: it is
+**classical simulation time on a laptop**, not a quantum runtime, and no
+quantum hardware was involved.
+
+| family | instance | solver | gap (mean ± sd) | runtime (mean ± sd) | runtime kind | feasibility |
+|---|---|---|---|---|---|---|
+| canonical | `n4_static` | `qaoa` | +0.00% | 118.67 s ± 16.52 | classical statevector simulation time | 0.034 (measured) |
+| canonical | `n4_static` | `qaoa-swap` | +0.00% | 0.72 s ± 0.07 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical | `n4_td30d` | `qaoa` | +0.00% | 103.49 s ± 16.17 | classical statevector simulation time | 0.027 (measured) |
+| canonical | `n4_td30d` | `qaoa-swap` | +0.00% | 0.52 s ± 0.07 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical | `n5_static` | `qaoa-swap` | +0.00% | 0.40 s ± 0.03 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical | `n5_td30d` | `qaoa-swap` | +0.00% | 0.55 s ± 0.08 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical | `n8_static` | `qaoa-swap` | +0.00% | 3.27 s ± 0.40 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical | `n8_td30d` | `qaoa-swap` | +1.15% ± 2.31 | 3.75 s ± 0.77 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n4_static` | `qaoa` | +0.00% | 93.09 s ± 11.52 | classical statevector simulation time | 0.038 (measured) |
+| canonical-v2 | `n4_static` | `qaoa-swap` | +0.00% | 0.87 s ± 0.02 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n4_td3d` | `qaoa` | +0.00% | 84.50 s ± 9.80 | classical statevector simulation time | 0.038 (measured) |
+| canonical-v2 | `n4_td3d` | `qaoa-swap` | +0.00% | 0.61 s ± 0.06 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n4_td7d` | `qaoa` | +0.00% | 76.86 s ± 5.94 | classical statevector simulation time | 0.040 (measured) |
+| canonical-v2 | `n4_td7d` | `qaoa-swap` | +0.00% | 0.60 s ± 0.11 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n4_td14d` | `qaoa` | +0.00% | 75.60 s ± 12.52 | classical statevector simulation time | 0.042 (measured) |
+| canonical-v2 | `n4_td14d` | `qaoa-swap` | +0.00% | 0.41 s ± 0.01 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n4_td30d` | `qaoa` | +0.00% | 65.47 s ± 7.54 | classical statevector simulation time | 0.040 (measured) |
+| canonical-v2 | `n4_td30d` | `qaoa-swap` | +0.00% | 0.42 s ± 0.02 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n5_static` | `qaoa-swap` | +0.00% | 0.67 s ± 0.08 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n5_td3d` | `qaoa-swap` | +0.00% | 0.53 s ± 0.05 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n5_td7d` | `qaoa-swap` | +0.00% | 0.67 s ± 0.10 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n5_td14d` | `qaoa-swap` | +0.00% | 0.43 s ± 0.00 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n5_td30d` | `qaoa-swap` | +0.00% | 0.51 s ± 0.02 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n8_static` | `qaoa-swap` | +0.00% | 3.29 s ± 0.10 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n8_td3d` | `qaoa-swap` | +0.00% | 3.79 s ± 0.43 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n8_td7d` | `qaoa-swap` | +0.00% | 4.11 s ± 0.61 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+| canonical-v2 | `n8_td14d` | `qaoa-swap` | +0.00% | 3.52 s ± 0.46 | classical subspace simulation time | 1.000 (structural, subspace backend) |
+
+At N ≤ 4 a `+0.00%` here is **not evidence of anything**. There are 24
+orderings, and best-of-shots finds the optimum from noise. See "Where QAOA
+stands" below for the measurement against chance. `qaoa-swap`'s feasibility
+of 1.000 is **structural**: the subspace backend cannot leave the feasible set.
+It was not measured.
+
+![Solution quality by solver and problem size, v1](docs/figures/bench_gap_vs_n.png)
+
+![v2: every instance, every solver, and the certified gap](docs/figures/bench_v2_gap_by_instance.png)
+
+![v3: every instance, every solver, and the certified gap](docs/figures/bench_v3_gap_by_instance.png)
 
 ---
 
@@ -215,57 +354,52 @@ sampler that never once satisfied a constraint look successful.
 
 ### Where simulated annealing stands
 
-`sa-qubo` — simulated annealing on the QUBO — is the worst solver in this
-benchmark at every size above N=5, and it degrades with N: +0.61% at N=8,
-+11.64% at N=10, +63.57% at N=15, +121.04% at N=20 (static). Time-dependent
-instances are no different (+3.30%, +14.65%, +47.20%, +108.17%).
+`sa-qubo` (simulated annealing on the QUBO) is the worst search heuristic in
+this benchmark at every N ≥ 10, and it degrades with N.
+* **v1:** +0.61% at N=8, +11.64% at N=10, +63.57% at N=15 and +121.04% at N=20
+  (static); +3.30%, +14.65%, +47.20% and +108.17% (time-dependent).
+* **v2 at N=40:** +327.38% static and +353.08% time-dependent.
+* **v3 at N=40:** +298.86% and +149.74%.
+* It refuses N > 40.
 
 The reason is **the encoding, not the annealer**. `sa-perm` anneals the same
-objective over permutations instead of N² penalised binaries:
+objective over permutations, instead of over N² penalised binaries, and ties
+the reference on every v1 and v2 instance. Its only miss in the whole
+benchmark is +0.18% mean on v3 `n50_td3d`. `sa-perm` gets a **1 second
+wall-clock budget** across 4 restarts. `sa-qubo`'s 500 reads × 1000 sweeps cost
+it 0.10–3.09 s on v1, in compiled C++ (`dwave-samplers`), against interpreted
+Python. The comparison is generous to `sa-qubo`.
 
-| instance | `sa-perm` | `sa-qubo` |
-|---|---|---|
-| `n8_td30d` | +0.00% | +3.30% ± 2.70 |
-| `n10_td30d` | +0.00% | +14.65% ± 6.95 |
-| `n15_td30d` | +0.00% | +47.20% ± 10.27 |
-| `n20_td30d` | +0.00% | +108.17% ± 9.67 |
-
-`sa-perm` is given a **1 second wall-clock budget** across 4 restarts, against
-`sa-qubo`'s 500 reads × 1000 sweeps, which costs it 0.28–2.30 s. The comparison
-is therefore generous to `sa-qubo` twice over: it gets *more* wall clock at
-N=15 and N=20, and it is compiled C++ (`dwave-samplers`) against interpreted
-Python. Both budget currencies — the wall-clock limit and the realised
-iteration count — are recorded in `sa-perm`'s metadata so the comparison can be
-audited rather than believed.
-
-One caveat stated plainly: `sa-perm` **starts from the greedy solution**, so it
-cannot do worse than greedy, and part of its +0.00% is that head start rather
-than the annealing. `localsearch` — the same neighbourhood at zero temperature,
-also greedy-started — already ties everywhere in milliseconds, which suggests
-the annealing contributes little here beyond what the local search does. What
-the comparison does establish is narrower and still worth having: **at a budget
-that favours it, the QUBO encoding loses badly to searching the permutations
-directly.**
-
-The QUBO's penalty terms are not the problem either. **Raw feasibility is 1.00
-at every penalty weight at or above the provable threshold, on every
-time-dependent instance.** The constraints are satisfied; the objective is not
-being optimised. See the penalty study below.
+**The greedy head start is now measured, not stated.** `sa-perm` starts its
+first restart from the greedy path. `sa-perm-cold` is identical but starts
+every restart from a random permutation.
+* They tie on every v1 instance and on every instance below N=20.
+* Cold starts cost something only on large time-dependent instances:
+  * v2 `n20_td3d`: +0.15% ± 0.30
+  * v2 `n25_td3d`: +0.76% ± 1.53
+  * v3 `n30_td3d`: +0.28%
+  * v3 `n40_static`: +0.04%
+  * v3 `n40_td3d`: +0.82%
+  * v3 `n50_td3d`: +2.92% ± 5.66, against +0.18% warm
+* So the head start is worth something only at N ≥ 20, mostly with
+  time-dependent costs. Even there it is not decisive: on v3 `n20_td3d`, cold
+  and warm both reach the best-known path on all 5 seeds. The old caveat that
+  "part of `sa-perm`'s +0.00% is the head start" holds only on the instances
+  listed above.
 
 ### Where QAOA stands
 
 **QAOA runs at N=4 and nowhere else in this benchmark.** The position encoding
-needs N² qubits and a dense statevector is 2^(N²) amplitudes: N=5 is 512 MB
-before the optimiser evaluates anything, N=6 is 1 TB. `exact` — a
-dynamic program from 1962 — reaches N=18 on the same laptop. **The quantum
-solver's ceiling sits an order of magnitude below the classical oracle's, on
-the same problem, in the same encoding. That gap is the headline quantum
-result of this project.**
+needs N² qubits, and a dense statevector holds 2^(N²) amplitudes: 512 MB at
+N=5 before the optimiser evaluates anything, and 1 TB at N=6. `exact`, a 1962
+dynamic program, reaches N=18 on the same laptop. **The quantum solver's
+ceiling sits an order of magnitude below the classical oracle's, on the same
+problem, in the same encoding.**
 
-At N=4 the +0.00% gap in the table above **is not evidence of anything**. There
-are 24 possible sequences among 2^16 bitstrings; best-of-4096-shots plus repair
-recovers the optimum from uniform random bits. The only numbers at this size
-that carry signal are the ones measured against chance:
+At N=4 the +0.00% gap **is not evidence of anything**. There are 24 possible
+sequences among 2^16 bitstrings, so best-of-4096-shots plus repair recovers the
+optimum from uniform random bits. The only numbers at this size that carry
+signal are the ones measured against chance (v1, 5 seeds):
 
 | instance | raw feasibility | uniform baseline | P(optimal bitstring) | uniform P(optimal) | mean Δv of feasible samples | mean Δv of a random permutation |
 |---|---|---|---|---|---|---|
@@ -274,42 +408,54 @@ that carry signal are the ones measured against chance:
 
 Read honestly, that is one real effect and one disappointment:
 
-* **QAOA concentrates amplitude on the feasible subspace**, by roughly 94× on
-  the static instance and 74× on the time-dependent one, and on the optimal
-  bitstring by 162× and 102×. The uniform baselines are exact, not estimated:
-  24 permutation matrices among 65536 bitstrings, and the optimal-sequence
-  count enumerated over all 24 orders. (`n4_static` has **two** optimal
-  sequences because a static symmetric cost matrix makes a path and its reverse
-  tie; time dependence breaks that symmetry, leaving one.)
-* **Within the feasible set it barely optimises at all.** The mean delta-v of
-  its feasible samples is 6.6% better than a uniformly random permutation on
-  `n4_static` and 6.5% better on `n4_td30d`. It is finding permutations, not
-  good permutations.
+* **QAOA concentrates amplitude on the feasible subspace**, by about 94× on the
+  static instance and 74× on the time-dependent one, and on the optimal
+  bitstring by 162× and 102×. The uniform baselines are exact counts, not
+  estimates.
+* **Within the feasible set it barely optimises.** The mean delta-v of its
+  feasible samples is only 6.6% and 6.5% better than a uniformly random
+  permutation. It finds permutations, not good permutations.
 
-Every QAOA runtime in this repository is **classical statevector simulation
-time** — 63.3 s ± 7.3 per run on `n4_static` and 64.2 s ± 7.1 on `n4_td30d`. It
-is not a quantum runtime, and no quantum hardware was involved.
+`qaoa-swap` (constraint-preserving mixer, `docs/qubo.md` §10) runs to N=9.
+That reach comes from the problem's size, not from anything quantum: the
+circuit's feasible subspace has N! amplitudes, which a classical simulator
+evolves exactly. It ties the reference on every instance it runs except v1
+`n8_td30d` (+1.15% ± 2.31). As with `qaoa` at N ≤ 4, best-of-shots there is not
+evidence; `docs/qubo.md` has the within-feasible quality study.
 
-### Where OR-Tools and CP-SAT stand
+**Every QAOA runtime here is classical simulation time.** For `qaoa` that is
+statevector time: 118.67 s ± 16.52 per run on v1 `n4_static`, 103.49 s ± 16.17
+on `n4_td30d`. For `qaoa-swap` it is subspace time: 0.40–4.11 s mean per run. No
+quantum hardware was involved.
 
-`ortools` (routing, guided local search) ties the reference on **all six static
-instances** and **refuses all six time-dependent ones**. A routing arc-cost
-callback is a function of `(from, to)` and has no access to how many legs have
-been flown, so it cannot express `C[t,i,j]`. It returns a recorded miss instead
-of silently optimising a different problem.
+### Where the MIPs stand: CP-SAT and HiGHS
 
-`cpsat` — a position-indexed CP-SAT model — has no such blind spot, because
-indexing a leg variable by position is exactly what a time slot is. **It ties
-the reference on all twelve instances**, including both time-dependent ones and
-both N=20 ones, and it is the only solver here that can certify anything: it
-**proved optimality on 55 of its 60 runs**, the exceptions being the two N=20
-instances where it returns a bound instead. Its runtime is a **configured time
-limit** (60 s), not a measurement.
+Both are time-indexed MIPs that read `C[t,i,j]` through the slot index, so
+neither has `ortools`' blind spot for time-dependent costs.
 
-`localsearch` (greedy start, then 2-opt and or-opt to a local optimum, every
-move re-evaluated through `path_cost` so it is correct on time-slotted costs)
-also ties the reference on all twelve — in **0.000–0.003 s**. It is the
-cheapest solver in the benchmark and nothing beats it on quality.
+* **`highs` is what certifies the references.** It proves optimality on 12/12
+  v1, 30/31 v2 and 8/13 v3 instances. Every `proven` reference in the tables
+  rests on its bound.
+* **`cpsat`, warm-started from localsearch with a redundant circuit
+  constraint,** proves optimality on 56/60 v1, 125/127 v2 and 23/36 v3 runs.
+  Its bounds carry a (N−1)·0.5 mm/s rounding margin.
+* Both runtimes are a **configured 60 s limit** unless the run proves
+  optimality. That is a knob, not a measurement.
+* Full write-up, including the cap study and the CP-SAT ablation:
+  [`docs/bounds.md`](docs/bounds.md).
+
+`ortools` (routing, guided local search) cannot express time-dependent costs
+and refuses all of them with a reason.
+* It ties every v1 and v2 static reference.
+* On v3 static it loses: +2.24% at N=20, +1.41% at N=40, +3.66% at N=50 and
+  +0.42% at N=60.
+
+`localsearch` (greedy start, then 2-opt and or-opt) ties the reference on 55
+of 56 instances. Its mean runtime is at most 0.07 s on every instance. `ils`
+(the same descent plus double-bridge kicks and restarts) **matches the
+reference on all 56**, including the one localsearch misses. It cannot do worse
+than localsearch by construction. Its cost is runtime: up to 11.5 s at N=40, 22.8 s
+at N=50, and its 30 s cap at N=60.
 
 ### The penalty study
 
@@ -330,8 +476,8 @@ everywhere**. Gap above the reference, mean over 5 seeds:
 
 Two things follow, and they point the same way:
 
-1. **A bigger penalty buys no feasibility.** Raw feasibility is already 1.000 at
-   weight 1.0 on every instance, and stays 1.000 through 8.0. Below the
+1. **A bigger penalty buys no feasibility.** Raw feasibility is already 0.996–1.000
+   at weight 1.0 on every instance, and stays there through 8.0. Below the
    threshold it falls to 0.54–0.93 — and the *quality* there is the best on the
    whole table. The bound is worst-case; "provably sufficient" and "works well"
    are different properties.
@@ -346,78 +492,79 @@ rescue `sa-qubo`: even its best weight at `n15_td30d` (+18.4%) is far worse than
 
 ### Time to solution
 
-![Time to solution by solver and problem size](docs/figures/bench_runtime_vs_n.png)
+![Time to solution by solver and problem size, v1](docs/figures/bench_runtime_vs_n.png)
 
-Read with three caveats, all of which are printed on the figure: `qaoa` is
-classical statevector simulation time; `ortools` and `cpsat` burn a configured
-time limit, which is a knob and not a measurement; and `sa-perm` is numpy
-against `sa-qubo`'s compiled C++ at an identical proposal count. These are
-laptop wall-clock numbers — treat them as orders of magnitude, not as a ranking
-of implementations.
+Read these with the caveats printed on the figure:
+* `qaoa` and `qaoa-swap` times are classical simulation time.
+* `ortools`, `cpsat` and `highs` burn a configured limit unless they prove
+  optimality.
+* `sa-perm` is numpy against `sa-qubo`'s compiled C++.
+* `ils` has a 30 s safety cap, which it reached only on v3 `n60_static`.
+
+These are laptop wall-clock numbers. Treat them as orders of magnitude, not as
+a ranking of implementations. The v2 and v3 runtime figures are
+`docs/figures/bench_v2_runtime_vs_n.png` and `bench_v3_runtime_vs_n.png`.
 
 ### One route, drawn on the plane that costs delta-v
 
 ![The best-known route for n10_td30d on RAAN vs altitude](docs/figures/best_sequence_raan_altitude.png)
 
-### How reproducible is any of this?
+### What produced these numbers
 
-The benchmark was executed five times while this was being built.
+| family | runs | solver runs at | results files written at |
+|---|---|---|---|
+| v1 | 588 | `fa5b562`, clean tree | `4a340e3` (CSV regeneration, no solver run) |
+| v2 | 1491 | `fa5b562`, clean tree | `a8f15ea` (post-processing after a crash, no solver run) |
+| v3 | 609 | `203f4e9`, clean tree | `203f4e9` |
 
-**Solution quality is fully deterministic given the seeds.** Across the first
-four runs all 108 gap cells were identical every time. The fifth run swapped
-three solvers (`cpsat`, `localsearch`, `sa-perm` — see the note below), and the
-**72 cells belonging to the six unchanged solvers came out identical again**,
-which is the strongest statement available: the harness, the instances and the
-seeds reproduce exactly, and only a deliberate change to a solver moves a
-number.
+The only `src/` change between `fa5b562` and `203f4e9` is in `bench.py`: the
+log-space chance baselines, and the manifest field that records code changes.
+It touches post-processing only. No solver, cost model or instance changed, so
+all three families ran the same solver code. Each manifest's
+`code_changes_since_runs` shows the diff for its own run, and each result row
+carries the commit that produced it.
 
-Wall-clock is *not* deterministic, and that is worth stating plainly because it
-is the part most likely to be quoted:
+Two things went wrong on the way, and both are in the history:
+* The v2 run crashed **after** all 1491 solver runs: computing the uniform
+  chance baseline overflowed a float at N=40. It was fixed in `a8f15ea`, and
+  the CSVs were written by a resume. Its checkpoint, `runs.jsonl`, was
+  sha256-identical before and after.
+* The first canonical run's `certified_lower_bound_kms` column was empty in
+  every row, because the harness read a metadata key no solver writes.
 
-* One run overlapped with other work on this laptop and inflated the N=15 block
-  by about 6×. Plotted, it drew the permutation annealer peaking at N=15 and
-  *falling* at N=20 — the opposite of its own scaling. That run was discarded
-  rather than shipped with a caveat.
-* QAOA measured 145.6 s per run on a hot laptop and 63.3 s on a cool one, for
-  identical output.
-
-The committed run was made on an idle machine from a clean tree. This is why
-the runtime figure carries three caveats and the quality tables carry none.
-
-The manifest records `"dirty": true` with four `dirty_paths`, all of them the
-run's own output files under `results/canonical/` — the run necessarily writes
-into the tree it is measuring. No source file was uncommitted, which is exactly
-what listing the paths rather than a bare boolean lets you check.
+Solution quality is deterministic given the seeds, with two exceptions:
+`cpsat` runs 8 workers, and both MIPs are time-limited, so their results can
+vary between machines. Wall clock is not deterministic. All three runs were
+made on a laptop, and the v3 run was observed running under `caffeinate`.
+Load average was not recorded per run, so treat runtimes as indicative.
 
 ### A note on where the solvers came from
 
-`cpsat`, `localsearch` and `sa-perm` were built by a parallel workspace and
-merged to `main` first. This branch had independently built its own versions of
-all three; they were deleted on merge, because two implementations of one solver
-cannot both live in the registry. The numbers above are the merged solvers'.
-Two design differences are worth knowing, since both were decided the other way
-here before the merge:
-
-* **`sa-perm`'s budget is matched to `sa-qubo` by wall clock**, not by proposed
-  moves. That makes the comparison conservative (interpreted Python against
-  compiled C++) but also makes the result depend on the machine it ran on, which
-  a proposal-matched budget would not.
-* **`cpsat` has no greedy warm start** and a 60 s limit. Without a warm start,
-  and at a 10 s limit, CP-SAT was measured returning a path *worse* than greedy
-  at N=20; the longer budget appears to cover that, and it proves optimality on
-  55 of 60 runs.
-
----
+`cpsat`, `localsearch` and `sa-perm` came from the classical-baselines
+workspace. `highs`, `ils` and `sa-perm-cold` were added for this comparison
+(`docs/bounds.md`), and `qaoa-swap` came from the QUBO workspace (`docs/qubo.md`
+§10). `sa-perm`'s budget is matched to `sa-qubo` by wall clock rather than by
+proposals, which makes the result depend on the machine; the 1 s budget is
+recorded in every row's metadata.
 
 ## Reproduce it
 
-From a clean clone, three commands:
+From a clean clone, the three canonical runs, with the figures and tables
+regenerated from them:
 
 ```bash
-uv sync --all-extras                                   # 1. install, including optional backends
-uv run dextrivia bench --out results/my-run            # 2. run every solver (~30 min)
-uv run python scripts/plot_benchmark.py results/my-run # 3. regenerate every figure
+uv sync --all-extras
+uv run dextrivia bench --out results/my-v1                       # v1 + penalty study, ~35 min
+uv run dextrivia bench --instance-dir data/instances/planecluster-v2 \
+    --out results/my-v2 --no-penalty-study                       # v2, ~1 h
+uv run dextrivia bench --instance-dir data/instances/collisionpair-v3 \
+    --out results/my-v3 --no-penalty-study                       # v3, ~40 min
+uv run python scripts/plot_benchmark.py results/my-v1 --prefix bench
+uv run python scripts/results_tables.py results/my-v1 results/my-v2 results/my-v3
 ```
+
+Every run is resumable. Re-run the same command with the same `--out` and
+completed rows are kept; each row records the git commit that produced it.
 
 A quick run, for checking the harness rather than reproducing the numbers:
 
@@ -443,19 +590,30 @@ uv run pytest
 uv run ruff check . && uv run ruff format --check .
 ```
 
-Everything the benchmark needs is committed: the TLE snapshot
-(`data/snapshots/iridium33_20260402.json`), the 12-file instance family
-(`data/instances/`), and the canonical results run (`results/canonical/`). No
+Everything the benchmark needs is committed: the TLE snapshots
+(`data/snapshots/`), the three instance families (`data/instances/` for v1,
+`planecluster-v2/` and `collisionpair-v3/`), and the three canonical runs
+(`results/canonical/`, `results/canonical-v2/`, `results/canonical-v3/`). No
 network access is required to reproduce any number in this README.
 
 ### What a results directory contains
 
 | File | Contents |
 |---|---|
+| `runs.jsonl` | the checkpoint: one JSON row per finished run, appended as it completes; what a resume reads |
 | `results.csv` | one row per (instance, solver, seed) run |
 | `summary.csv` | one row per (instance, solver): mean, standard deviation, best |
 | `penalty_sweep.csv` | QUBO feasibility and quality against penalty weight |
-| `manifest.json` | git SHA, per-instance sha256, library versions, CPU, seeds |
+| `manifest.json` | git SHA, per-instance sha256, library versions, CPU, seeds, run segments, `code_changes_since_runs` |
+
+**`results/canonical/penalty_sweep.csv` is from the original v1 run at
+`fa5b562`, penalty study included.** That directory's `manifest.json`
+`command` shows `--no-penalty-study`, but only because the other CSVs and the
+manifest were regenerated later by a resume that ran no solver, to add the
+`log10_uniform_*` columns. The flag stopped the penalty study, which isn't
+checkpointed, from being re-sampled. `penalty_sweep.csv` was left
+byte-identical, and the manifest's `notes` field says so. The v2 and v3 runs
+have no penalty study by design.
 
 ---
 
@@ -471,14 +629,16 @@ src/dextrivia/
 |-- cli.py                  dextrivia fetch | build | solve | bench
 |-- costs/                  hohmann (baseline), realistic (plane-aware), selection
 |-- qubo/                   open-path QUBO: formulation, decode, repair, penalty
-|-- solvers/                greedy, exact, brute, localsearch, sa-perm,
-|                           sa-qubo, qaoa, ortools, cpsat
+|-- solvers/                greedy, exact, brute, localsearch, ils, sa-perm,
+|                           sa-perm-cold, sa-qubo, qaoa, qaoa-swap, ortools,
+|                           cpsat, highs (certified lower bounds)
 data/snapshots/             committed, timestamped TLE sets
-data/instances/             the committed plane-cluster instance family
-results/canonical/          the committed benchmark run this README cites
+data/instances/             v1 (flat), planecluster-v2/, collisionpair-v3/
+results/canonical*/         the committed v1, v2 and v3 runs this README cites
 scripts/                    instance family, figures, benchmark output check
 docs/physics.md             the cost models and their validation
 docs/qubo.md                the QUBO formulation and its characterization
+docs/bounds.md              certified lower bounds, the MIP caps, the CP-SAT ablation
 ```
 
 ---

@@ -13,7 +13,12 @@ from pathlib import Path
 from dextrivia import bench as bench_module
 from dextrivia.core import ProblemInstance
 from dextrivia.costs import COST_MODELS, ClusterWindow, HohmannCostModel
-from dextrivia.costs.selection import PLANE_CLUSTER_RULE, build_cluster_instance, family_path
+from dextrivia.costs.selection import (
+    COLLISION_PAIR_RULE,
+    PLANE_CLUSTER_RULE,
+    build_cluster_instance,
+    family_path,
+)
 from dextrivia.instances import build_instance
 from dextrivia.snapshots import (
     DEFAULT_GROUP,
@@ -25,6 +30,9 @@ from dextrivia.snapshots import (
     parse_snapshot_name,
 )
 from dextrivia.solvers import SOLVERS
+
+#: Rules that go through ``build_cluster_instance`` (plane-aware costs).
+CLUSTER_RULES = (PLANE_CLUSTER_RULE, COLLISION_PAIR_RULE)
 
 
 def default_instance_dir() -> Path:
@@ -81,14 +89,22 @@ def _cost_model(args: argparse.Namespace):
 
 
 def _default_out(args: argparse.Namespace, snapshot_path: Path, cost_model) -> Path:
-    if args.select == PLANE_CLUSTER_RULE and args.family_version:
+    stem = snapshot_path.stem
+    if args.select == COLLISION_PAIR_RULE:
+        stem = f"{stem}+{Path(args.pair_snapshot).stem}"
+    if args.select in CLUSTER_RULES and args.family_version:
         if args.cost_model != "impulsive-plane":
             raise ValueError("--family-version names the impulsive family; pass --out instead")
         return family_path(
-            default_instance_dir(), snapshot_path.stem, args.n, args.delta_days, args.family_version
+            default_instance_dir(),
+            stem,
+            args.n,
+            args.delta_days,
+            args.family_version,
+            rule=args.select,
         )
-    if args.select == PLANE_CLUSTER_RULE:
-        name = f"{snapshot_path.stem}_n{args.n}_{PLANE_CLUSTER_RULE}_{cost_model.name}.npz"
+    if args.select in CLUSTER_RULES:
+        name = f"{stem}_n{args.n}_{args.select}_{cost_model.name}.npz"
         return default_instance_dir() / name
     suffix = f"_seed{args.seed}" if args.seed is not None else ""
     return default_instance_dir() / f"{snapshot_path.stem}_n{args.n}_{args.select}{suffix}.npz"
@@ -102,7 +118,9 @@ def _cmd_build(args: argparse.Namespace) -> int:
         raise ValueError("--epoch must carry a UTC offset, e.g. 2026-04-02T07:05:22+00:00")
     cost_model = _cost_model(args)
 
-    if args.select == PLANE_CLUSTER_RULE:
+    if args.select == COLLISION_PAIR_RULE and not args.pair_snapshot:
+        raise ValueError("--select collision-pair needs --pair-snapshot")
+    if args.select in CLUSTER_RULES:
         window = ClusterWindow(
             raan_window_deg=args.raan_window,
             inc_window_deg=args.inc_window,
@@ -116,6 +134,9 @@ def _cmd_build(args: argparse.Namespace) -> int:
             window=window,
             seed_norad=args.seed_norad,
             family_version=args.family_version,
+            pair=(
+                Snapshot.load(args.pair_snapshot) if args.select == COLLISION_PAIR_RULE else None
+            ),
         )
     else:
         if args.delta_days is not None or args.cost_model != HohmannCostModel.name:
@@ -128,7 +149,7 @@ def _cmd_build(args: argparse.Namespace) -> int:
 
     print(f"wrote {out}")
     print(f"  snapshot   {snapshot_path.name} ({len(snapshot)} objects)")
-    if args.select == PLANE_CLUSTER_RULE:
+    if args.select in CLUSTER_RULES:
         meta = instance.metadata
         print(
             f"  selection  {args.select} n={args.n} seed_norad={meta['cluster_seed_norad']} "
@@ -190,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"default: newest {DEFAULT_GROUP} snapshot in data/snapshots",
     )
     build.add_argument("--n", type=int, default=10, help="number of objects (default 10)")
-    build.add_argument("--select", choices=(*SELECTION_RULES, PLANE_CLUSTER_RULE), default="first")
+    build.add_argument("--select", choices=(*SELECTION_RULES, *CLUSTER_RULES), default="first")
     build.add_argument("--seed", type=int, default=None, help="required for --select random")
     build.add_argument("--epoch", default=None, help="ISO UTC; default snapshot median TLE epoch")
     build.add_argument("--out", default=None, help="output .npz path")
@@ -212,6 +233,11 @@ def build_parser() -> argparse.ArgumentParser:
     cluster.add_argument("--inc-window", type=float, default=defaults.inc_window_deg)
     cluster.add_argument("--alt-band", type=float, default=defaults.alt_band_km)
     cluster.add_argument("--seed-norad", type=int, default=None, help="pin the cluster seed")
+    cluster.add_argument(
+        "--pair-snapshot",
+        default=None,
+        help="second cloud for --select collision-pair (docs/physics.md section 11)",
+    )
     cluster.add_argument(
         "--family-version",
         default=None,
